@@ -479,7 +479,23 @@ class App(V9App):
             return self._tab_serial_tools_blimgui(body)
         if tab.get('id') == 'bl4_codes':
             return self._tab_bl4_codes_v13(body, cards)
+        if tab.get('id') == 'serial_bookmarks':
+            return self._tab_serial_bookmarks_local(body, cards)
         return super()._tab_two_col(body, tab, cards)
+
+    def _tab_serial_bookmarks_local(self, body, cards):
+        self._place_card(body, cards['serial_bookmarks_main'], compact=False).pack(fill='both', expand=True, padx=6, pady=5, anchor='n')
+        search=self.widgets.get('bookmark_search')
+        if search:
+            search.bind('<KeyRelease>', lambda e:self._refresh_serial_bookmarks_ui())
+        wrap, inner = self._card_wrap(body, 'Saved Bookmarks', '#8a2be2')
+        wrap.pack(fill='both', expand=True, padx=6, pady=5, anchor='n')
+        tk.Label(inner, text='Local saved serial bookmarks. Select a row to edit or deliver it with the Serial Bookmarks buttons above.', bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w', justify='left', wraplength=1100).pack(fill='x', padx=8, pady=(6,2))
+        self.serial_bookmarks_listbox=tk.Listbox(inner, height=12, selectmode='browse', bg='#0e1320', fg='#d7def5', selectbackground='#1f3b63', relief='flat', font=('Consolas',8), exportselection=False)
+        self.serial_bookmarks_listbox.pack(fill='both', expand=True, padx=8, pady=(3,8))
+        self.serial_bookmarks_listbox.bind('<<ListboxSelect>>', lambda e:self._serial_bookmark_selected())
+        self.serial_bookmark_rows=[]
+        self._refresh_serial_bookmarks_ui()
 
     def _serial_tools_text_area(self, parent, fid, height, readonly=False):
         txt = tk.Text(parent, height=height, bg='#181417', fg='#f1f5ff', insertbackground='#f1f5ff', relief='flat', wrap='word', font=('Consolas',8))
@@ -833,22 +849,14 @@ class App(V9App):
         e=entries[0]
         row=self._bl4_bookmark_payload(e)
         if not row['serial']: return self.log('Selected BL4 code has no serial to bookmark.')
-        rows=self._load_bookmark_store()
-        rows.append(row)
-        self._save_bookmark_store(rows)
+        self._add_bookmarks_local([row], update_existing=True)
         self.log('Bookmarked selected code locally.')
 
     def _import_selected_bl4_bookmarks(self):
         entries=self._selected_bl4_entries()
         if not entries: return self.log('No BL4 codes selected to import.')
-        rows=self._load_bookmark_store()
-        added=0
-        for e in entries:
-            row=self._bl4_bookmark_payload(e)
-            if not row['serial']: continue
-            rows.append(row)
-            added += 1
-        self._save_bookmark_store(rows)
+        rows=[self._bl4_bookmark_payload(e) for e in entries]
+        added=self._add_bookmarks_local(rows, update_existing=False)
         self.log(f'Imported {added} selected code(s) to bookmarks.')
 
     def _bl4_parts_breakdown_text(self, serial, quiet=False):
@@ -963,6 +971,97 @@ class App(V9App):
         p=self._bookmark_store_path(); p.parent.mkdir(parents=True,exist_ok=True)
         p.write_text(json.dumps(rows,indent=2),encoding='utf-8')
 
+    def _bookmark_serial_key(self, row):
+        return str((row or {}).get('serial') or '').strip()
+
+    def _normalize_bookmark_row(self, row):
+        row=dict(row or {})
+        return {
+            'name': str(row.get('name') or row.get('title') or 'Untitled Serial'),
+            'group': str(row.get('group') or row.get('category') or 'Default'),
+            'serial': str(row.get('serial') or '').strip(),
+            'source': str(row.get('source') or ''),
+            'listing': str(row.get('listing') or ''),
+            'type': str(row.get('type') or row.get('category') or ''),
+            'manufacturer': str(row.get('manufacturer') or ''),
+            'rarity': str(row.get('rarity') or ''),
+            'creator': str(row.get('creator') or ''),
+            'url': str(row.get('url') or ''),
+            'mattmab_validator': str(row.get('mattmab_validator') or ''),
+            'mattmab_validator_detail': str(row.get('mattmab_validator_detail') or ''),
+        }
+
+    def _add_bookmarks_local(self, incoming, update_existing=True, allow_duplicates=False):
+        rows=[self._normalize_bookmark_row(r) for r in self._load_bookmark_store()]
+        by_serial={self._bookmark_serial_key(r): i for i,r in enumerate(rows) if self._bookmark_serial_key(r)}
+        added=0
+        for raw in incoming:
+            row=self._normalize_bookmark_row(raw)
+            key=self._bookmark_serial_key(row)
+            if not key:
+                continue
+            if key in by_serial and not allow_duplicates:
+                if update_existing:
+                    current=rows[by_serial[key]]
+                    current.update({k:v for k,v in row.items() if v})
+                continue
+            if key not in by_serial:
+                by_serial[key]=len(rows)
+            rows.append(row)
+            added += 1
+        self._save_bookmark_store(rows)
+        self._refresh_serial_bookmarks_ui()
+        return added
+
+    def _set_bookmark_field(self, fid, value):
+        value=str(value or '')
+        var=self.field_vars.get(fid)
+        if var:
+            var.set(value)
+        widget=self.widgets.get(fid)
+        try:
+            if isinstance(widget, tk.Text):
+                widget.delete('1.0','end')
+                widget.insert('1.0', value)
+        except Exception:
+            pass
+
+    def _bookmark_list_label(self, row):
+        group=row.get('group') or 'Default'
+        name=row.get('name') or 'Untitled Serial'
+        source=row.get('source') or row.get('listing') or ''
+        serial=row.get('serial') or ''
+        suffix=f" | {source}" if source else ''
+        return f"{group} | {name}{suffix} | {serial[:38]}"
+
+    def _refresh_serial_bookmarks_ui(self):
+        lb=getattr(self, 'serial_bookmarks_listbox', None)
+        if not lb:
+            return
+        q=(self.field_vars.get('bookmark_search', tk.StringVar()).get() or '').lower().strip()
+        rows=[self._normalize_bookmark_row(r) for r in self._load_bookmark_store()]
+        if q:
+            rows=[r for r in rows if q in ' '.join(str(r.get(k) or '') for k in ('name','group','serial','source','listing','type','manufacturer','rarity','creator','url')).lower()]
+        self.serial_bookmark_rows=rows
+        lb.delete(0,'end')
+        for row in rows:
+            lb.insert('end', self._bookmark_list_label(row))
+
+    def _serial_bookmark_selected(self):
+        lb=getattr(self, 'serial_bookmarks_listbox', None)
+        if not lb:
+            return
+        sel=list(lb.curselection())
+        if not sel:
+            return
+        idx=sel[0]
+        if idx < 0 or idx >= len(getattr(self, 'serial_bookmark_rows', [])):
+            return
+        row=self.serial_bookmark_rows[idx]
+        self._set_bookmark_field('bookmark_name', row.get('name') or '')
+        self._set_bookmark_field('bookmark_group', row.get('group') or '')
+        self._set_bookmark_field('bookmark_serial', row.get('serial') or '')
+
     def _bookmark_current_payload(self):
         return {
             'name': self.field_vars.get('bookmark_name',tk.StringVar()).get().strip() or 'Untitled Serial',
@@ -973,19 +1072,25 @@ class App(V9App):
     def _serial_bookmark_action_local(self, aid):
         rows=self._load_bookmark_store(); cur=self._bookmark_current_payload()
         if aid=='serial_bookmark_new':
-            self.field_vars.setdefault('bookmark_name',tk.StringVar()).set('')
-            self.field_vars.setdefault('bookmark_group',tk.StringVar()).set('')
-            self.field_vars.setdefault('bookmark_serial',tk.StringVar()).set('')
+            self._set_bookmark_field('bookmark_name', '')
+            self._set_bookmark_field('bookmark_group', '')
+            self._set_bookmark_field('bookmark_serial', '')
+            lb=getattr(self, 'serial_bookmarks_listbox', None)
+            if lb: lb.selection_clear(0,'end')
             return self.log('New bookmark fields cleared.')
         if aid in ('serial_bookmark_save','serial_bookmark_import'):
             if not cur['serial']: return self.log('No bookmark serial to save/import.')
-            rows.append(cur); self._save_bookmark_store(rows); return self.log(f"Saved bookmark: {cur['name']}")
+            added=self._add_bookmarks_local([cur], update_existing=True)
+            return self.log(f"Saved bookmark: {cur['name']}" if added else f"Updated bookmark: {cur['name']}")
         if aid=='serial_bookmark_duplicate':
             if not cur['serial']: return self.log('No bookmark serial to duplicate.')
-            cur['name']=cur['name']+' Copy'; rows.append(cur); self._save_bookmark_store(rows); return self.log(f"Duplicated bookmark: {cur['name']}")
+            cur['name']=cur['name']+' Copy'
+            self._add_bookmarks_local([cur], update_existing=False, allow_duplicates=True)
+            self._set_bookmark_field('bookmark_name', cur['name'])
+            return self.log(f"Duplicated bookmark: {cur['name']}")
         if aid=='serial_bookmark_delete':
             serial=cur['serial']; before=len(rows); rows=[r for r in rows if r.get('serial')!=serial]
-            self._save_bookmark_store(rows); return self.log(f'Deleted {before-len(rows)} matching bookmark(s).')
+            self._save_bookmark_store(rows); self._refresh_serial_bookmarks_ui(); return self.log(f'Deleted {before-len(rows)} matching bookmark(s).')
         if aid=='serial_bookmark_copy':
             serial=cur['serial']
             if not serial: return self.log('No bookmark serial to copy.')
@@ -1003,14 +1108,8 @@ class App(V9App):
         if aid=='codes_import_bookmarks':
             entries=self._selected_bl4_entries()
             if not entries: return self.log('No BL4 codes selected to import.')
-            rows=self._load_bookmark_store()
-            added=0
-            for e in entries:
-                row=self._bl4_bookmark_payload(e)
-                if row['serial']:
-                    rows.append(row)
-                    added += 1
-            self._save_bookmark_store(rows); self.log(f'Imported {added} selected code(s) to bookmarks.')
+            added=self._add_bookmarks_local([self._bl4_bookmark_payload(e) for e in entries], update_existing=False)
+            self.log(f'Imported {added} selected code(s) to bookmarks.')
             return
 
     def _serial_tools_input_value(self):
