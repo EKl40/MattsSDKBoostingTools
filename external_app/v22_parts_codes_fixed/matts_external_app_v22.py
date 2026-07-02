@@ -5,6 +5,7 @@ from tkinter import ttk, messagebox
 import json, re, time, threading
 from pathlib import Path
 from urllib import request
+import webbrowser
 from external_serial_tools import convert_serial_tool, serial_parts_breakdown_for_value
 from matts_external_core_v20 import ACCENT_COLORS, http_json, RESOURCE_DIR
 from matts_external_legit_travel_v20 import App as V9App
@@ -615,7 +616,7 @@ class App(V9App):
     def _tab_bl4_codes_v13(self, body, cards):
         wrap, inner = self._card_wrap(body, 'BL4 Codes', '#b37a00')
         wrap.pack(fill='both', expand=True, padx=6, pady=5)
-        tk.Label(inner, text='Merged local BL4 codes catalog. Search/filter works without the game; delivery and live breakdown run through the bridge.', bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w').pack(fill='x', padx=8, pady=(6,2))
+        tk.Label(inner, text='Merged local BL4 codes catalog. Search, details, bookmarks, and parts breakdown run locally; live delivery uses the SDK bridge.', bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w').pack(fill='x', padx=8, pady=(6,2))
 
         top = tk.Frame(inner, bg='#090d17'); top.pack(fill='x', padx=8, pady=4)
         left_filters = tk.Frame(top, bg='#090d17'); left_filters.pack(side='left', fill='x', expand=True)
@@ -666,10 +667,11 @@ class App(V9App):
             ('Copy Parts Breakdown', self._copy_bl4_breakdown, 'purple'),
             ('Copy Serial', self._copy_bl4_serial, 'cyan'),
             ('Bookmark This', self._bookmark_bl4_selected, 'gold'),
+            ('Open Lootlemon', self._open_bl4_lootlemon, 'gold'),
             ('Run Parts Breakdown', self._run_bl4_parts_breakdown, 'cyan'),
         ]):
             tk.Button(detail_buttons, text=txt, command=cmd, bg='#172033', fg=ACCENT_COLORS.get(col,'#00d4ff'), relief='flat', font=('Segoe UI',8,'bold')).grid(row=0,column=i,sticky='ew',padx=2,pady=2)
-        for i in range(4): detail_buttons.grid_columnconfigure(i,weight=1)
+        for i in range(5): detail_buttons.grid_columnconfigure(i,weight=1)
 
         list_buttons = tk.Frame(inner, bg='#090d17'); list_buttons.pack(fill='x', padx=8, pady=(0,4))
         for i,(txt,cmd,col) in enumerate([
@@ -775,7 +777,7 @@ class App(V9App):
             f"URL: {e.get('url','')}",
         ])
         serial=e.get('serial') or ''
-        breakdown='Select Run Parts Breakdown to ask the in-game bridge/SDK decoder for this serial.'
+        breakdown=self._bl4_parts_breakdown_text(serial, quiet=True)
         self._set_bl4_detail(detail, serial, breakdown)
 
     def _select_all_bl4_codes(self):
@@ -809,36 +811,81 @@ class App(V9App):
         if not text: return self.log('No parts breakdown to copy.')
         self._copy_text_v13(text, 'parts breakdown')
 
+    def _bl4_bookmark_payload(self, e):
+        return {
+            'name': e.get('name') or 'BL4 Code',
+            'group': e.get('category') or e.get('type') or e.get('listing') or 'BL4 Codes',
+            'serial': e.get('serial') or '',
+            'source': e.get('source') or '',
+            'listing': e.get('listing') or '',
+            'type': e.get('type') or e.get('category') or '',
+            'manufacturer': e.get('manufacturer') or '',
+            'rarity': e.get('rarity') or '',
+            'creator': e.get('creator') or '',
+            'url': e.get('url') or '',
+            'mattmab_validator': e.get('mattmab_validator') or '',
+            'mattmab_validator_detail': e.get('mattmab_validator_detail') or '',
+        }
+
     def _bookmark_bl4_selected(self):
         entries=self._selected_bl4_entries()
         if not entries: return self.log('No selected code to bookmark.')
-        self.log(f'Bookmark staging: {entries[0].get("name")} is selected. Full bookmark save/edit parity is still a local-data pass item.')
+        e=entries[0]
+        row=self._bl4_bookmark_payload(e)
+        if not row['serial']: return self.log('Selected BL4 code has no serial to bookmark.')
+        rows=self._load_bookmark_store()
+        rows.append(row)
+        self._save_bookmark_store(rows)
+        self.log('Bookmarked selected code locally.')
 
     def _import_selected_bl4_bookmarks(self):
         entries=self._selected_bl4_entries()
-        self.log(f'Import selected to bookmarks staged for {len(entries)} item(s). Full persistent bookmark write is still a local-data pass item.')
+        if not entries: return self.log('No BL4 codes selected to import.')
+        rows=self._load_bookmark_store()
+        added=0
+        for e in entries:
+            row=self._bl4_bookmark_payload(e)
+            if not row['serial']: continue
+            rows.append(row)
+            added += 1
+        self._save_bookmark_store(rows)
+        self.log(f'Imported {added} selected code(s) to bookmarks.')
+
+    def _bl4_parts_breakdown_text(self, serial, quiet=False):
+        serial=str(serial or '').strip()
+        if not serial:
+            return ''
+        try:
+            out=serial_parts_breakdown_for_value(serial)
+        except Exception as exc:
+            out=f'Parts breakdown unavailable locally: {exc}'
+        if not str(out or '').strip():
+            out='Parts breakdown unavailable locally. Check that resources/gzo_parts_map.json exists.'
+        if not quiet:
+            self.log('Parts breakdown generated locally.')
+        return out
+
+    def _set_bl4_breakdown_text(self, text):
+        if getattr(self,'bl4_breakdown_text',None):
+            self.bl4_breakdown_text.delete('1.0','end')
+            self.bl4_breakdown_text.insert('1.0', text or '')
 
     def _run_bl4_parts_breakdown(self):
         serial=self.field_vars.get('code_serial', tk.StringVar()).get().strip()
         if not serial: return self.log('No serial selected for parts breakdown.')
-        action={'id':'serial_breakdown','uses_fields':['code_serial']}
-        old=self.field_vars.get('serial_input')
-        self.field_vars['serial_input']=tk.StringVar(value=serial)
-        # send directly because bridge expects serial_input for serial_breakdown
-        payload={'serial_input':serial}
-        self.log('Requesting SDK parts breakdown for selected BL4 code...')
-        def work():
-            try:
-                res=http_json('POST','/action',{'action':'serial_breakdown','payload':payload,'timeout':10.0},timeout=12.0)
-                msg=res.get('message') or json.dumps(res)
-                def done():
-                    if getattr(self,'bl4_breakdown_text',None):
-                        self.bl4_breakdown_text.delete('1.0','end'); self.bl4_breakdown_text.insert('1.0',msg)
-                    self.log('Parts breakdown returned.')
-                self.after(0, done)
-            except Exception as exc:
-                self.after(0, lambda:self.log('Parts breakdown failed: '+repr(exc)))
-        threading.Thread(target=work, daemon=True).start()
+        self._set_bl4_breakdown_text(self._bl4_parts_breakdown_text(serial))
+
+    def _open_bl4_lootlemon(self):
+        entries=self._selected_bl4_entries()
+        if not entries: return self.log('No selected code to open.')
+        url=str(entries[0].get('url') or '').strip()
+        if not url: return self.log('Selected BL4 code has no Lootlemon URL.')
+        if not re.match(r'^https?://', url, re.I): return self.log('Selected BL4 code URL is not a web link.')
+        try:
+            webbrowser.open(url)
+            self.log('Opened Lootlemon link.')
+        except Exception as exc:
+            self.log(f'Open Lootlemon failed: {exc!r}')
 
     def _deliver_bl4_codes(self, mode):
         serials=self._selected_bl4_serials()
@@ -957,9 +1004,13 @@ class App(V9App):
             entries=self._selected_bl4_entries()
             if not entries: return self.log('No BL4 codes selected to import.')
             rows=self._load_bookmark_store()
+            added=0
             for e in entries:
-                rows.append({'name':e.get('name') or 'BL4 Code','group':e.get('category') or 'BL4 Codes','serial':e.get('serial') or ''})
-            self._save_bookmark_store(rows); self.log(f'Imported {len(entries)} selected BL4 code(s) to local bookmarks.')
+                row=self._bl4_bookmark_payload(e)
+                if row['serial']:
+                    rows.append(row)
+                    added += 1
+            self._save_bookmark_store(rows); self.log(f'Imported {added} selected code(s) to bookmarks.')
             return
 
     def _serial_tools_input_value(self):
