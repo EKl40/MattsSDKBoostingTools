@@ -486,39 +486,117 @@ class App(V9App):
 
     def _tab_serial_bookmarks_local(self, body, cards):
         self._ensure_bookmark_state()
-        self._place_card(body, cards['serial_bookmarks_main'], compact=False).pack(fill='both', expand=True, padx=6, pady=5, anchor='n')
-        search=self.widgets.get('bookmark_search')
-        if search:
-            search.bind('<KeyRelease>', lambda e:self._refresh_serial_bookmarks_ui())
-        wrap, inner = self._card_wrap(body, 'Saved Bookmarks', '#8a2be2')
+        wrap, inner = self._card_wrap(body, 'Serial Bookmarks', '#8a2be2')
         wrap.pack(fill='both', expand=True, padx=6, pady=5, anchor='n')
-        tk.Label(inner, text='Local saved serial bookmarks. Select a row to edit or deliver it with the Serial Bookmarks buttons above.', bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w', justify='left', wraplength=1100).pack(fill='x', padx=8, pady=(6,2))
-        controls=tk.Frame(inner, bg='#090d17')
-        controls.pack(fill='x', padx=8, pady=(3,2))
-        tk.Label(controls, text='Groups', bg='#090d17', fg='#cfd8f3', font=('Segoe UI',8), anchor='w').pack(side='left')
-        self.bookmark_group_filter_combo=ttk.Combobox(controls, textvariable=self.bookmark_group_filter_var, values=['All'], state='readonly', width=24)
-        self.bookmark_group_filter_combo.pack(side='left', padx=(8,10))
+        header=tk.Frame(inner, bg='#090d17')
+        header.pack(fill='x', padx=8, pady=(6,2))
+        tk.Label(header, text='SERIAL BOOKMARKS', bg='#090d17', fg='#cfd8f3', font=('Segoe UI',8,'bold'), anchor='w').pack(side='left')
+        for txt,cmd,col in [
+            ('+ New Serial', lambda:self._serial_bookmark_action_local('serial_bookmark_new'), 'cyan'),
+            ('Import', lambda:self._serial_bookmark_action_local('serial_bookmark_import'), 'gold'),
+        ]:
+            tk.Button(header, text=txt, command=cmd, bg='#172033', fg=ACCENT_COLORS.get(col,'#00d4ff'), relief='flat', font=('Segoe UI',8,'bold'), padx=8, pady=5).pack(side='left', padx=(10,0))
+        tk.Label(inner, text='Browse saved serials, edit the active entry, then deliver the checked items from the footer.', bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w', justify='left', wraplength=1100).pack(fill='x', padx=8, pady=(0,5))
+
+        filters=tk.Frame(inner, bg='#090d17')
+        filters.pack(fill='x', padx=8, pady=(0,5))
+        filters.grid_columnconfigure(0, weight=1)
+        self.field_vars['bookmark_search']=self.field_vars.get('bookmark_search') or tk.StringVar(value='')
+        search=ttk.Entry(filters, textvariable=self.field_vars['bookmark_search'])
+        search.grid(row=0, column=0, sticky='ew')
+        search.bind('<KeyRelease>', lambda e:self._refresh_serial_bookmarks_ui())
+        self.widgets['bookmark_search']=search
+        tk.Label(filters, text='Search', bg='#090d17', fg='#cfd8f3', font=('Segoe UI',8), anchor='w').grid(row=0, column=1, sticky='w', padx=(6,0))
+        self.bookmark_group_filter_combo=ttk.Combobox(filters, textvariable=self.bookmark_group_filter_var, values=['All'], state='readonly', width=24)
+        self.bookmark_group_filter_combo.grid(row=1, column=0, sticky='ew', pady=(3,0))
+        tk.Label(filters, text='Groups', bg='#090d17', fg='#cfd8f3', font=('Segoe UI',8), anchor='w').grid(row=1, column=1, sticky='w', padx=(6,0), pady=(3,0))
         self.bookmark_group_filter_combo.bind('<<ComboboxSelected>>', lambda e:self._refresh_serial_bookmarks_ui())
+
+        panes=tk.Frame(inner, bg='#090d17')
+        panes.pack(fill='both', expand=True, padx=8, pady=4)
+        panes.grid_columnconfigure(0, weight=3)
+        panes.grid_columnconfigure(1, weight=2)
+        panes.grid_rowconfigure(3, weight=1)
+        tk.Label(panes, text='SERIALS', bg='#090d17', fg='#cfd8f3', font=('Segoe UI',8,'bold'), anchor='w').grid(row=0,column=0,sticky='ew')
+        tk.Label(panes, text='DETAILS', bg='#090d17', fg='#cfd8f3', font=('Segoe UI',8,'bold'), anchor='w').grid(row=0,column=1,sticky='ew',padx=(8,0))
         self.bookmark_count_var=tk.StringVar(value='0 shown / 0 saved | 0 selected')
-        tk.Label(controls, textvariable=self.bookmark_count_var, bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w').pack(side='left', fill='x', expand=True)
-        buttons=tk.Frame(inner, bg='#090d17')
-        buttons.pack(fill='x', padx=6, pady=(0,4))
+        tk.Label(panes, textvariable=self.bookmark_count_var, bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w').grid(row=1,column=0,sticky='ew')
+        buttons=tk.Frame(panes, bg='#090d17')
+        buttons.grid(row=2,column=0,sticky='ew',pady=(3,0))
         for i,(txt,cmd,col) in enumerate([
             ('Select All', self._select_all_visible_bookmarks, 'purple'),
             ('Clear', self._clear_checked_bookmarks, 'red'),
-            ('Toggle Checked', self._toggle_active_bookmark_checked, 'cyan'),
             ('Copy Selected Serials', self._copy_checked_bookmark_serials, 'gold'),
+            ('Toggle Checked', self._toggle_active_bookmark_checked, 'cyan'),
         ]):
             tk.Button(buttons, text=txt, command=cmd, bg='#172033', fg=ACCENT_COLORS.get(col,'#00d4ff'), relief='flat', font=('Segoe UI',8,'bold')).grid(row=0,column=i,sticky='ew',padx=3,pady=3)
         for i in range(4): buttons.grid_columnconfigure(i, weight=1)
-        self.serial_bookmarks_listbox=tk.Listbox(inner, height=12, selectmode='browse', bg='#0e1320', fg='#d7def5', selectbackground='#1f3b63', relief='flat', font=('Consolas',8), exportselection=False)
-        self.serial_bookmarks_listbox.pack(fill='both', expand=True, padx=8, pady=(3,8))
+        self.serial_bookmarks_listbox=tk.Listbox(panes, height=18, selectmode='browse', bg='#0e1320', fg='#d7def5', selectbackground='#1f3b63', relief='flat', font=('Consolas',8), exportselection=False)
+        self.serial_bookmarks_listbox.grid(row=3,column=0,sticky='nsew',pady=(4,0))
         self.serial_bookmarks_listbox.bind('<<ListboxSelect>>', lambda e:self._serial_bookmark_selected())
         self.serial_bookmarks_listbox.bind('<Double-Button-1>', lambda e:self._toggle_active_bookmark_checked())
+        details=tk.Frame(panes, bg='#090d17')
+        details.grid(row=1,column=1,rowspan=3,sticky='nsew',padx=(8,0),pady=(0,0))
+        details.grid_columnconfigure(0, weight=1)
+        details.grid_rowconfigure(5, weight=1)
+        self._bookmark_detail_entry(details, 'Name', 'bookmark_name', 0)
+        self._bookmark_detail_entry(details, 'Group', 'bookmark_group', 2)
+        tk.Label(details, text='Serial', bg='#090d17', fg='#cfd8f3', font=('Segoe UI',8), anchor='w').grid(row=4,column=0,sticky='ew',pady=(6,1))
+        self.field_vars['bookmark_serial']=self.field_vars.get('bookmark_serial') or tk.StringVar(value='')
+        serial_txt=tk.Text(details, height=9, bg='#181417', fg='#f1f5ff', insertbackground='#f1f5ff', relief='flat', wrap='word', font=('Consolas',8))
+        serial_txt.insert('1.0', self.field_vars['bookmark_serial'].get())
+        serial_txt.grid(row=5,column=0,sticky='nsew')
+        serial_txt.bind('<KeyRelease>', lambda e,v=self.field_vars['bookmark_serial'],w=serial_txt:v.set(w.get('1.0','end-1c')))
+        self.widgets['bookmark_serial']=serial_txt
+        detail_buttons=tk.Frame(details, bg='#090d17')
+        detail_buttons.grid(row=6,column=0,sticky='ew',pady=(5,0))
+        for i,(txt,aid,col) in enumerate([
+            ('Save','serial_bookmark_save','cyan'),
+            ('Duplicate','serial_bookmark_duplicate','purple'),
+            ('Delete','serial_bookmark_delete','red'),
+            ('Copy','serial_bookmark_copy','gold'),
+        ]):
+            tk.Button(detail_buttons, text=txt, command=lambda a=aid:self._serial_bookmark_action_local(a), bg='#172033', fg=ACCENT_COLORS.get(col,'#00d4ff'), relief='flat', font=('Segoe UI',8,'bold')).grid(row=0,column=i,sticky='ew',padx=3,pady=3)
+        for i in range(4): detail_buttons.grid_columnconfigure(i, weight=1)
         self.bookmark_status_var=tk.StringVar(value=self.bookmark_status_message)
-        tk.Label(inner, textvariable=self.bookmark_status_var, bg='#090d17', fg='#21e05f', font=('Segoe UI',8), anchor='w', justify='left', wraplength=1100).pack(fill='x', padx=8, pady=(0,8))
+        tk.Label(details, textvariable=self.bookmark_status_var, bg='#090d17', fg='#21e05f', font=('Segoe UI',8), anchor='w', justify='left', wraplength=520).grid(row=7,column=0,sticky='ew',pady=(4,0))
+
+        footer=tk.Frame(inner, bg='#090d17')
+        footer.pack(fill='x', padx=8, pady=(6,8))
+        target_row=tk.Frame(footer, bg='#090d17')
+        target_row.pack(fill='x', padx=8, pady=2)
+        self.field_vars['bookmark_target_player']=self.field_vars.get('bookmark_target_player') or tk.StringVar(value='')
+        target_cb=ttk.Combobox(target_row, textvariable=self.field_vars['bookmark_target_player'], values=self.player_options, state='readonly')
+        target_cb.pack(side='left', fill='x', expand=True)
+        tk.Label(target_row, text='Serial Bookmarks Target', bg='#090d17', fg='#cfd8f3', anchor='w', font=('Segoe UI',8)).pack(side='left', padx=(6,12))
+        tk.Button(target_row, text='Refresh Players', command=self.poll_status, bg='#172033', fg='#00d4ff', relief='flat', font=('Segoe UI',8,'bold'), padx=8, pady=5).pack(side='left')
+        self.widgets['bookmark_target_player']=target_cb
+        if self.player_options and not self.field_vars['bookmark_target_player'].get():
+            self.field_vars['bookmark_target_player'].set(self.player_options[0])
+        footer_buttons=tk.Frame(footer, bg='#090d17')
+        footer_buttons.pack(fill='x', padx=8, pady=(3,0))
+        self.bookmark_delivery_status_var=tk.StringVar(value='0 selected')
+        tk.Label(footer_buttons, textvariable=self.bookmark_delivery_status_var, bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w').grid(row=0,column=0,sticky='ew',padx=3)
+        tk.Label(footer_buttons, text='Delivery uses GiveRewardAllPlayers, then patches requested target(s)', bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w').grid(row=0,column=1,sticky='ew',padx=3)
+        for i,(txt,mode,col) in enumerate([
+            ('Deliver Selected','selected','purple'),
+            ('Deliver All','all','gold'),
+            ('Deliver Non-Host','nonhost','cyan'),
+        ], start=2):
+            tk.Button(footer_buttons, text=txt, command=lambda m=mode:self._deliver_bookmark_serials(m), bg='#172033', fg=ACCENT_COLORS.get(col,'#00d4ff'), relief='flat', font=('Segoe UI',8,'bold')).grid(row=0,column=i,sticky='ew',padx=3,pady=3)
+        for i in range(5): footer_buttons.grid_columnconfigure(i, weight=1)
+        self.bookmark_split_preview_var=tk.StringVar(value='Delivery preview: no checked bookmarks.')
+        tk.Label(footer, textvariable=self.bookmark_split_preview_var, bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w', justify='left', wraplength=1100).pack(fill='x', padx=8, pady=(2,0))
         self.serial_bookmark_rows=[]
         self._refresh_serial_bookmarks_ui()
+
+    def _bookmark_detail_entry(self, parent, label, fid, row):
+        tk.Label(parent, text=label, bg='#090d17', fg='#cfd8f3', font=('Segoe UI',8), anchor='w').grid(row=row,column=0,sticky='ew',pady=(0,1))
+        self.field_vars[fid]=self.field_vars.get(fid) or tk.StringVar(value='')
+        ent=ttk.Entry(parent, textvariable=self.field_vars[fid])
+        ent.grid(row=row+1,column=0,sticky='ew',pady=(0,4))
+        self.widgets[fid]=ent
+        return ent
 
     def _serial_tools_text_area(self, parent, fid, height, readonly=False):
         txt = tk.Text(parent, height=height, bg='#181417', fg='#f1f5ff', insertbackground='#f1f5ff', relief='flat', wrap='word', font=('Consolas',8))
@@ -947,6 +1025,11 @@ class App(V9App):
                 cb.configure(values=self.player_options)
                 cur=self.field_vars.get('code_target_player', tk.StringVar()).get()
                 if not cur and self.player_options: self.field_vars['code_target_player'].set(self.player_options[0])
+            cb=self.widgets.get('bookmark_target_player')
+            if isinstance(cb, ttk.Combobox):
+                cb.configure(values=self.player_options)
+                cur=self.field_vars.get('bookmark_target_player', tk.StringVar()).get()
+                if not cur and self.player_options: self.field_vars['bookmark_target_player'].set(self.player_options[0])
         except Exception: pass
 
 
@@ -1094,6 +1177,12 @@ class App(V9App):
         if log_global:
             self.log(self.bookmark_status_message)
 
+    def _bookmark_row_by_id(self, bookmark_id):
+        for row in [self._normalize_bookmark_row(r) for r in self._load_bookmark_store()]:
+            if self._bookmark_id(row) == bookmark_id:
+                return row
+        return None
+
     def _refresh_serial_bookmarks_ui(self):
         self._ensure_bookmark_state()
         lb=getattr(self, 'serial_bookmarks_listbox', None)
@@ -1127,6 +1216,7 @@ class App(V9App):
         if hasattr(self, 'bookmark_count_var'):
             total=len([self._normalize_bookmark_row(r) for r in self._load_bookmark_store()])
             self.bookmark_count_var.set(f'{len(rows)} shown / {total} saved | {len(self.checked_bookmark_ids)} selected')
+        self._refresh_bookmark_delivery_preview()
 
     def _serial_bookmark_selected(self):
         self._ensure_bookmark_state()
@@ -1183,6 +1273,69 @@ class App(V9App):
         self._copy_text_v13('\n'.join(serials), f'{len(serials)} selected bookmarked serial(s)')
         self._set_bookmark_status(f'Copied {len(serials)} selected bookmarked serial(s).')
 
+    def _bookmark_delivery_rows(self):
+        rows=self._checked_bookmark_rows()
+        if rows:
+            return rows
+        active=self._bookmark_row_by_id(getattr(self, 'active_bookmark_id', ''))
+        return [active] if active else []
+
+    def _refresh_bookmark_delivery_preview(self):
+        rows=self._bookmark_delivery_rows()
+        serials=[str(r.get('serial') or '').strip() for r in rows if r and str(r.get('serial') or '').strip()]
+        if hasattr(self, 'bookmark_delivery_status_var'):
+            self.bookmark_delivery_status_var.set(f'{len(rows)} selected')
+        if hasattr(self, 'bookmark_split_preview_var'):
+            if not serials:
+                self.bookmark_split_preview_var.set('Delivery preview: no checked bookmarks.')
+            else:
+                total=sum(len(s) for s in serials)
+                self.bookmark_split_preview_var.set(f'Delivery preview: {len(serials)} serial(s), {total} character(s).')
+
+    def _deliver_bookmark_serials(self, mode):
+        rows=self._bookmark_delivery_rows()
+        serials=[str(r.get('serial') or '').strip() for r in rows if r and str(r.get('serial') or '').strip()]
+        if not serials:
+            return self._set_bookmark_status('Select one or more saved serials first.', log_global=True)
+        payload={'serial_text':'\n'.join(serials)}
+        aid={'selected':'give_serial_selected','all':'give_serial_all','nonhost':'give_serial_nonhost'}[mode]
+        self.log(f'Delivering {len(serials)} bookmarked serial(s) to {mode}...')
+        def work():
+            try:
+                res=http_json('POST','/action',{'action':aid,'payload':payload,'timeout':10.0},timeout=18.0)
+                self.after(0, lambda:self._set_bookmark_status(res.get('message') or 'Bookmark delivery requested.', log_global=True))
+                self.after(0, self.poll_status)
+            except Exception as exc:
+                self.after(0, lambda:self._set_bookmark_status('Bookmark delivery failed: '+repr(exc), log_global=True))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _serial_tools_import_source(self):
+        for fid in ('serial_tools_serialized', 'serial_tools_deserialized', 'serial_input'):
+            if hasattr(self, '_serial_tools_get_text'):
+                text=self._serial_tools_get_text(fid)
+            else:
+                text=self.field_vars.get(fid, tk.StringVar(value='')).get()
+            if str(text or '').strip():
+                return str(text).strip()
+        return ''
+
+    def _save_current_bookmark(self, cur):
+        rows=[self._normalize_bookmark_row(r) for r in self._load_bookmark_store()]
+        if self.active_bookmark_id:
+            for row in rows:
+                if self._bookmark_id(row) == self.active_bookmark_id:
+                    row.update({k:v for k,v in cur.items() if k != 'id' or v})
+                    row['id']=self.active_bookmark_id
+                    self._save_bookmark_store(rows)
+                    self._refresh_serial_bookmarks_ui()
+                    return False
+        row=self._normalize_bookmark_row(cur)
+        self.active_bookmark_id=self._bookmark_id(row)
+        rows.append(row)
+        self._save_bookmark_store(rows)
+        self._refresh_serial_bookmarks_ui()
+        return True
+
     def _bookmark_current_payload(self):
         self._ensure_bookmark_state()
         payload={
@@ -1204,26 +1357,50 @@ class App(V9App):
             self._set_bookmark_field('bookmark_serial', '')
             lb=getattr(self, 'serial_bookmarks_listbox', None)
             if lb: lb.selection_clear(0,'end')
-            return self.log('New bookmark fields cleared.')
-        if aid in ('serial_bookmark_save','serial_bookmark_import'):
+            self._refresh_serial_bookmarks_ui()
+            self._set_bookmark_status('Ready for a new saved serial.', log_global=True)
+            return
+        if aid=='serial_bookmark_import':
+            src=self._serial_tools_import_source()
+            if not src:
+                return self._set_bookmark_status('Serial Tools has no output/input to import.', log_global=True)
+            self._set_bookmark_field('bookmark_serial', src)
+            self._set_bookmark_status('Imported text from Serial Tools. Add a name/group, then save.', log_global=True)
+            return
+        if aid=='serial_bookmark_save':
             if not cur['serial']: return self.log('No bookmark serial to save/import.')
-            added=self._add_bookmarks_local([cur], update_existing=True)
-            return self.log(f"Saved bookmark: {cur['name']}" if added else f"Updated bookmark: {cur['name']}")
+            created=self._save_current_bookmark(cur)
+            self._set_bookmark_status(f"Saved {cur['name']}." if created else f"Updated {cur['name']}.", log_global=True)
+            return
         if aid=='serial_bookmark_duplicate':
-            if not cur['serial']: return self.log('No bookmark serial to duplicate.')
-            cur['name']=cur['name']+' Copy'
-            self._add_bookmarks_local([cur], update_existing=False, allow_duplicates=True)
-            self._set_bookmark_field('bookmark_name', cur['name'])
-            return self.log(f"Duplicated bookmark: {cur['name']}")
+            active=self._bookmark_row_by_id(self.active_bookmark_id)
+            if not active: return self._set_bookmark_status('Select a saved serial before duplicating.', log_global=True)
+            dup=dict(active)
+            dup.pop('id', None)
+            dup['name']=((dup.get('name') or 'Serial').strip() or 'Serial')+' Copy'
+            rows=[self._normalize_bookmark_row(r) for r in self._load_bookmark_store()]
+            dup=self._normalize_bookmark_row(dup)
+            dup['id']=f"{dup['id']}_{int(time.time()*1000)}"
+            rows.append(dup)
+            self.active_bookmark_id=dup['id']
+            self._save_bookmark_store(rows)
+            self._set_bookmark_field('bookmark_name', dup.get('name') or '')
+            self._set_bookmark_field('bookmark_group', dup.get('group') or '')
+            self._set_bookmark_field('bookmark_serial', dup.get('serial') or '')
+            self._refresh_serial_bookmarks_ui()
+            return self._set_bookmark_status(f"Duplicated bookmark: {dup['name']}", log_global=True)
         if aid=='serial_bookmark_delete':
             serial=cur['serial']; before=len(rows); rows=[self._normalize_bookmark_row(r) for r in rows]
             if self.active_bookmark_id:
-                rows=[r for r in rows if self._bookmark_id(r)!=self.active_bookmark_id]
+                if messagebox.askyesno('Delete Bookmark','Delete the active serial bookmark?') is False:
+                    return
+                deleted_id=self.active_bookmark_id
+                rows=[r for r in rows if self._bookmark_id(r)!=deleted_id]
                 self.checked_bookmark_ids.discard(self.active_bookmark_id)
                 self.active_bookmark_id=''
             else:
                 rows=[r for r in rows if r.get('serial')!=serial]
-            self._save_bookmark_store(rows); self._refresh_serial_bookmarks_ui(); return self.log(f'Deleted {before-len(rows)} matching bookmark(s).')
+            self._save_bookmark_store(rows); self._refresh_serial_bookmarks_ui(); return self._set_bookmark_status(f'Deleted {before-len(rows)} saved serial(s).', log_global=True)
         if aid=='serial_bookmark_copy':
             serial=cur['serial']
             if not serial: return self.log('No bookmark serial to copy.')
