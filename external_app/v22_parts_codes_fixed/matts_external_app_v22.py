@@ -8,12 +8,16 @@ from pathlib import Path
 from urllib import request
 import webbrowser
 from external_serial_tools import convert_serial_tool, serial_parts_breakdown_for_value
+import external_legit_builder
 from matts_external_core_v20 import ACCENT_COLORS, http_json, RESOURCE_DIR
 from matts_external_legit_travel_v20 import App as V9App
 
 class App(V9App):
     def __init__(self):
         self.legit_duplicate_qty_var = None
+        self.legit_human_output = ''
+        self.legit_base85_output = ''
+        self.legit_status_message = 'Select a root, add parts, then Validate or Build Base85.'
         super().__init__()
         self.title("Matt's SDK Boosting Tools - External V22 Parts Codes GZO Visible")
 
@@ -121,7 +125,8 @@ class App(V9App):
         btns=tk.Frame(inner,bg='#090d17'); btns.pack(fill='x',padx=8,pady=(4,8))
         actions=[
             {'id':'legit_apply_max_passives','label':'Add All Max Passives','accent':'gold','uses_fields':['legit_root_serial','legit_selected_parts','legit_unlock_modded']},
-            {'id':'legit_validate_build','label':'Validate / Build Active','accent':'cyan','uses_fields':['legit_root_serial','legit_selected_parts','legit_unlock_modded','legit_level','legit_signature']},
+            {'id':'local_legit_validate','label':'Validate','accent':'cyan'},
+            {'id':'local_legit_build_base85','label':'Build Base85','accent':'gold'},
             {'id':'legit_give_selected','label':'Give Active to Selected','accent':'gold','uses_fields':['legit_root_serial','legit_selected_parts','legit_unlock_modded','legit_level','legit_signature']},
             {'id':'legit_give_all','label':'Give Active to All','accent':'purple','uses_fields':['legit_root_serial','legit_selected_parts','legit_unlock_modded','legit_level','legit_signature']},
             {'id':'legit_clear_parts','label':'Clear Selected Parts','accent':'red'},
@@ -132,12 +137,89 @@ class App(V9App):
         self.field_vars['legit_selected_parts'] = self.field_vars.get('legit_selected_parts') or tk.StringVar(value='')
         txt=tk.Text(sel_inner,height=5,bg='#0e1320',fg='#d7def5',insertbackground='#f1f5ff',relief='flat',wrap='word',font=('Consolas',8))
         txt.pack(fill='x',padx=8,pady=8); txt.bind('<KeyRelease>',lambda e,w=txt:self.field_vars['legit_selected_parts'].set(w.get('1.0','end-1c'))); self.widgets['legit_selected_parts']=txt
+        self._legit_output_area(body)
         slot_wrap, slot_inner = self._card_wrap(body,'Slots / Available Parts','#6b7280')
         slot_wrap.pack(fill='both',expand=True,padx=6,pady=5)
         top=tk.Frame(slot_inner,bg='#090d17'); top.pack(fill='x',padx=8,pady=(5,2))
         tk.Label(top,text='Each panel is one Matt SDK slot/dependency. Add/Replace follows legit rules. Add x Qty preserves duplicates for modded/unlock builds.',bg='#090d17',fg='#9fb3d9',font=('Segoe UI',8)).pack(side='left')
         self.legit_slots_area=tk.Frame(slot_inner,bg='#090d17'); self.legit_slots_area.pack(fill='both',expand=True,padx=8,pady=6)
         self._refresh_combo('legit_manufacturer'); self._refresh_combo('legit_root_serial'); self._render_legit_slots()
+
+    def _legit_output_area(self, body):
+        wrap, inner = self._card_wrap(body, 'Legit Builder Output', '#8a2be2')
+        wrap.pack(fill='x', padx=6, pady=5)
+        self.field_vars['legit_status'] = self.field_vars.get('legit_status') or tk.StringVar(value=self.legit_status_message)
+        tk.Label(inner, textvariable=self.field_vars['legit_status'], bg='#090d17', fg='#21e05f', font=('Segoe UI',8), anchor='w', justify='left', wraplength=1200).pack(fill='x', padx=8, pady=(5,4))
+        self._legit_output_box(inner, 'Human Serial Output', 'legit_human_output', 'Copy Human', 'human serial', height=4)
+        self._legit_output_box(inner, 'Base85 @U Output', 'legit_base85_output', 'Copy Base85', 'Base85 serial', height=3)
+
+    def _legit_output_box(self, parent, label, widget_id, button_text, copy_label, height=4):
+        row=tk.Frame(parent,bg='#090d17'); row.pack(fill='x',padx=8,pady=(4,2))
+        tk.Label(row,text=label,bg='#090d17',fg='#cfd8f3',font=('Segoe UI',8,'bold'),anchor='w').pack(side='left')
+        tk.Button(row,text=button_text,command=lambda wid=widget_id, lab=copy_label:self._copy_text_v13(self._text_get(wid), lab) if self._text_get(wid).strip() else self.log(f'No {lab} to copy.'),bg='#172033',fg='#ffd447',relief='flat',font=('Segoe UI',8,'bold')).pack(side='right')
+        txt=tk.Text(parent,height=height,bg='#181417',fg='#f1f5ff',insertbackground='#f1f5ff',relief='flat',wrap='word',font=('Consolas',8))
+        txt.pack(fill='x',padx=8,pady=(0,6))
+        self.widgets[widget_id]=txt
+
+    def _text_get(self, widget_id):
+        widget=self.widgets.get(widget_id)
+        if isinstance(widget, tk.Text):
+            return widget.get('1.0','end-1c')
+        return ''
+
+    def _text_set(self, widget_id, value):
+        widget=self.widgets.get(widget_id)
+        if isinstance(widget, tk.Text):
+            widget.delete('1.0','end')
+            widget.insert('1.0',str(value or ''))
+
+    def _legit_payload_values(self):
+        return {
+            'root_serial': self.field_vars.get('legit_root_serial', tk.StringVar()).get(),
+            'selected_parts': '\n'.join(self._legit_selected_lines_without_root()),
+            'unlock_modded': self.field_vars.get('legit_unlock_modded', tk.StringVar(value='false')).get(),
+            'level': self.field_vars.get('legit_level', tk.StringVar(value='60')).get(),
+            'signature': self.field_vars.get('legit_signature', tk.StringVar(value='1')).get(),
+        }
+
+    def _set_legit_status(self, message, log_global=True):
+        self.legit_status_message=str(message or '')
+        if 'legit_status' in self.field_vars:
+            self.field_vars['legit_status'].set(self.legit_status_message)
+        if log_global:
+            self.log(self.legit_status_message)
+
+    def _run_local_legit_validate(self):
+        try:
+            values=self._legit_payload_values()
+            result=external_legit_builder.validate_build(values['root_serial'], values['selected_parts'], values['unlock_modded'], values['level'], values['signature'])
+            self.legit_human_output=''
+            self.legit_base85_output=''
+            self._text_set('legit_human_output','')
+            self._text_set('legit_base85_output','')
+            self._set_legit_status(result.get('status') or 'Validation complete.')
+        except Exception as exc:
+            self.legit_human_output=''
+            self.legit_base85_output=''
+            self._text_set('legit_human_output','')
+            self._text_set('legit_base85_output','')
+            self._set_legit_status(f'Legit validation failed: {exc}')
+
+    def _run_local_legit_build_base85(self):
+        try:
+            values=self._legit_payload_values()
+            result=external_legit_builder.build_base85_external(values['root_serial'], values['selected_parts'], values['unlock_modded'], values['level'], values['signature'])
+            self.legit_human_output=str(result.get('human') or '')
+            self.legit_base85_output=str(result.get('base85') or '')
+            self._text_set('legit_human_output', self.legit_human_output)
+            self._text_set('legit_base85_output', self.legit_base85_output)
+            self._set_legit_status(result.get('status') or 'Build complete.')
+        except Exception as exc:
+            self.legit_human_output=''
+            self.legit_base85_output=''
+            self._text_set('legit_human_output','')
+            self._text_set('legit_base85_output','')
+            self._set_legit_status(f'Legit build failed: {exc}')
 
     def _slot_line_from_part(self,p):
         table=str(p.get('table') or '').strip(); key=str(p.get('key') or '').strip()
@@ -1487,6 +1569,10 @@ class App(V9App):
             action=dict(action); action['uses_fields']=[]
         if aid in ('set_backpack_bank_selected','set_backpack_bank_all'):
             action=dict(action); action['uses_fields']=['backpack_size','bank_size']
+        if aid == 'local_legit_validate':
+            return self._run_local_legit_validate()
+        if aid == 'local_legit_build_base85':
+            return self._run_local_legit_build_base85()
         if aid == 'legit_apply_max_passives':
             return self._legit_apply_max_passives_local()
         # Route all movement apply buttons with current field values even if the original card action did not declare them.
