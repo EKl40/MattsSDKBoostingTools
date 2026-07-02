@@ -3,6 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, messagebox
 import json, re, time, threading
+import hashlib
 from pathlib import Path
 from urllib import request
 import webbrowser
@@ -484,6 +485,7 @@ class App(V9App):
         return super()._tab_two_col(body, tab, cards)
 
     def _tab_serial_bookmarks_local(self, body, cards):
+        self._ensure_bookmark_state()
         self._place_card(body, cards['serial_bookmarks_main'], compact=False).pack(fill='both', expand=True, padx=6, pady=5, anchor='n')
         search=self.widgets.get('bookmark_search')
         if search:
@@ -491,9 +493,30 @@ class App(V9App):
         wrap, inner = self._card_wrap(body, 'Saved Bookmarks', '#8a2be2')
         wrap.pack(fill='both', expand=True, padx=6, pady=5, anchor='n')
         tk.Label(inner, text='Local saved serial bookmarks. Select a row to edit or deliver it with the Serial Bookmarks buttons above.', bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w', justify='left', wraplength=1100).pack(fill='x', padx=8, pady=(6,2))
+        controls=tk.Frame(inner, bg='#090d17')
+        controls.pack(fill='x', padx=8, pady=(3,2))
+        tk.Label(controls, text='Groups', bg='#090d17', fg='#cfd8f3', font=('Segoe UI',8), anchor='w').pack(side='left')
+        self.bookmark_group_filter_combo=ttk.Combobox(controls, textvariable=self.bookmark_group_filter_var, values=['All'], state='readonly', width=24)
+        self.bookmark_group_filter_combo.pack(side='left', padx=(8,10))
+        self.bookmark_group_filter_combo.bind('<<ComboboxSelected>>', lambda e:self._refresh_serial_bookmarks_ui())
+        self.bookmark_count_var=tk.StringVar(value='0 shown / 0 saved | 0 selected')
+        tk.Label(controls, textvariable=self.bookmark_count_var, bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w').pack(side='left', fill='x', expand=True)
+        buttons=tk.Frame(inner, bg='#090d17')
+        buttons.pack(fill='x', padx=6, pady=(0,4))
+        for i,(txt,cmd,col) in enumerate([
+            ('Select All', self._select_all_visible_bookmarks, 'purple'),
+            ('Clear', self._clear_checked_bookmarks, 'red'),
+            ('Toggle Checked', self._toggle_active_bookmark_checked, 'cyan'),
+            ('Copy Selected Serials', self._copy_checked_bookmark_serials, 'gold'),
+        ]):
+            tk.Button(buttons, text=txt, command=cmd, bg='#172033', fg=ACCENT_COLORS.get(col,'#00d4ff'), relief='flat', font=('Segoe UI',8,'bold')).grid(row=0,column=i,sticky='ew',padx=3,pady=3)
+        for i in range(4): buttons.grid_columnconfigure(i, weight=1)
         self.serial_bookmarks_listbox=tk.Listbox(inner, height=12, selectmode='browse', bg='#0e1320', fg='#d7def5', selectbackground='#1f3b63', relief='flat', font=('Consolas',8), exportselection=False)
         self.serial_bookmarks_listbox.pack(fill='both', expand=True, padx=8, pady=(3,8))
         self.serial_bookmarks_listbox.bind('<<ListboxSelect>>', lambda e:self._serial_bookmark_selected())
+        self.serial_bookmarks_listbox.bind('<Double-Button-1>', lambda e:self._toggle_active_bookmark_checked())
+        self.bookmark_status_var=tk.StringVar(value=self.bookmark_status_message)
+        tk.Label(inner, textvariable=self.bookmark_status_var, bg='#090d17', fg='#21e05f', font=('Segoe UI',8), anchor='w', justify='left', wraplength=1100).pack(fill='x', padx=8, pady=(0,8))
         self.serial_bookmark_rows=[]
         self._refresh_serial_bookmarks_ui()
 
@@ -959,11 +982,23 @@ class App(V9App):
         p=Path(__file__).resolve().parent/'resources'/'user_serial_bookmarks.json'
         return p
 
+    def _ensure_bookmark_state(self):
+        if not hasattr(self, 'active_bookmark_id'):
+            self.active_bookmark_id=''
+        if not hasattr(self, 'checked_bookmark_ids'):
+            self.checked_bookmark_ids=set()
+        if not hasattr(self, 'bookmark_group_filter_var'):
+            self.bookmark_group_filter_var=tk.StringVar(value='All')
+        if not hasattr(self, 'bookmark_status_message'):
+            self.bookmark_status_message='Ready.'
+
     def _load_bookmark_store(self):
         import json
         p=self._bookmark_store_path()
         if not p.exists(): return []
-        try: return json.loads(p.read_text(encoding='utf-8'))
+        try:
+            data=json.loads(p.read_text(encoding='utf-8'))
+            return data.get('entries', data) if isinstance(data, dict) else data
         except Exception: return []
 
     def _save_bookmark_store(self, rows):
@@ -971,27 +1006,36 @@ class App(V9App):
         p=self._bookmark_store_path(); p.parent.mkdir(parents=True,exist_ok=True)
         p.write_text(json.dumps(rows,indent=2),encoding='utf-8')
 
+    def _bookmark_generated_id(self, row):
+        basis='|'.join(str((row or {}).get(k) or '') for k in ('serial','name','group','source','url'))
+        digest=hashlib.sha1(basis.encode('utf-8', errors='ignore')).hexdigest()[:16]
+        return f'bm_{digest}'
+
+    def _bookmark_id(self, row):
+        return str((row or {}).get('id') or self._bookmark_generated_id(row))
+
     def _bookmark_serial_key(self, row):
         return str((row or {}).get('serial') or '').strip()
 
     def _normalize_bookmark_row(self, row):
         row=dict(row or {})
-        return {
-            'name': str(row.get('name') or row.get('title') or 'Untitled Serial'),
-            'group': str(row.get('group') or row.get('category') or 'Default'),
-            'serial': str(row.get('serial') or '').strip(),
-            'source': str(row.get('source') or ''),
-            'listing': str(row.get('listing') or ''),
-            'type': str(row.get('type') or row.get('category') or ''),
-            'manufacturer': str(row.get('manufacturer') or ''),
-            'rarity': str(row.get('rarity') or ''),
-            'creator': str(row.get('creator') or ''),
-            'url': str(row.get('url') or ''),
-            'mattmab_validator': str(row.get('mattmab_validator') or ''),
-            'mattmab_validator_detail': str(row.get('mattmab_validator_detail') or ''),
-        }
+        row['id']=self._bookmark_id(row)
+        row['name']=str(row.get('name') or row.get('title') or 'Untitled Serial')
+        row['group']=str(row.get('group') or row.get('category') or 'Default')
+        row['serial']=str(row.get('serial') or '').strip()
+        row['source']=str(row.get('source') or '')
+        row['listing']=str(row.get('listing') or '')
+        row['type']=str(row.get('type') or row.get('category') or '')
+        row['manufacturer']=str(row.get('manufacturer') or '')
+        row['rarity']=str(row.get('rarity') or '')
+        row['creator']=str(row.get('creator') or '')
+        row['url']=str(row.get('url') or '')
+        row['mattmab_validator']=str(row.get('mattmab_validator') or '')
+        row['mattmab_validator_detail']=str(row.get('mattmab_validator_detail') or '')
+        return row
 
     def _add_bookmarks_local(self, incoming, update_existing=True, allow_duplicates=False):
+        self._ensure_bookmark_state()
         rows=[self._normalize_bookmark_row(r) for r in self._load_bookmark_store()]
         by_serial={self._bookmark_serial_key(r): i for i,r in enumerate(rows) if self._bookmark_serial_key(r)}
         added=0
@@ -1004,10 +1048,14 @@ class App(V9App):
                 if update_existing:
                     current=rows[by_serial[key]]
                     current.update({k:v for k,v in row.items() if v})
+                    self.active_bookmark_id=str(current.get('id') or '')
                 continue
             if key not in by_serial:
                 by_serial[key]=len(rows)
+            if allow_duplicates:
+                row['id']=f"{row['id']}_{len(rows)}"
             rows.append(row)
+            self.active_bookmark_id=str(row.get('id') or '')
             added += 1
         self._save_bookmark_store(rows)
         self._refresh_serial_bookmarks_ui()
@@ -1027,27 +1075,61 @@ class App(V9App):
             pass
 
     def _bookmark_list_label(self, row):
+        bid=self._bookmark_id(row)
+        active='> ' if bid == getattr(self, 'active_bookmark_id', '') else '  '
+        checked='[X]' if bid in getattr(self, 'checked_bookmark_ids', set()) else '[ ]'
         group=row.get('group') or 'Default'
         name=row.get('name') or 'Untitled Serial'
-        source=row.get('source') or row.get('listing') or ''
-        serial=row.get('serial') or ''
-        suffix=f" | {source}" if source else ''
-        return f"{group} | {name}{suffix} | {serial[:38]}"
+        return f"{active}{checked} {name} | {group}"
+
+    def _bookmark_groups(self, rows):
+        groups=sorted({str(r.get('group') or 'Default') for r in rows})
+        return ['All'] + (groups or ['Default'])
+
+    def _set_bookmark_status(self, message, log_global=False):
+        self._ensure_bookmark_state()
+        self.bookmark_status_message=str(message or '')
+        if hasattr(self, 'bookmark_status_var'):
+            self.bookmark_status_var.set(self.bookmark_status_message)
+        if log_global:
+            self.log(self.bookmark_status_message)
 
     def _refresh_serial_bookmarks_ui(self):
+        self._ensure_bookmark_state()
         lb=getattr(self, 'serial_bookmarks_listbox', None)
         if not lb:
             return
         q=(self.field_vars.get('bookmark_search', tk.StringVar()).get() or '').lower().strip()
         rows=[self._normalize_bookmark_row(r) for r in self._load_bookmark_store()]
+        all_ids={self._bookmark_id(r) for r in rows}
+        self.checked_bookmark_ids={bid for bid in self.checked_bookmark_ids if bid in all_ids}
+        groups=self._bookmark_groups(rows)
+        cb=getattr(self, 'bookmark_group_filter_combo', None)
+        if isinstance(cb, ttk.Combobox):
+            cur=self.bookmark_group_filter_var.get() or 'All'
+            cb.configure(values=groups)
+            if cur not in groups:
+                self.bookmark_group_filter_var.set('All')
+        group_filter=self.bookmark_group_filter_var.get() or 'All'
+        if group_filter != 'All':
+            rows=[r for r in rows if str(r.get('group') or 'Default') == group_filter]
         if q:
             rows=[r for r in rows if q in ' '.join(str(r.get(k) or '') for k in ('name','group','serial','source','listing','type','manufacturer','rarity','creator','url')).lower()]
         self.serial_bookmark_rows=rows
         lb.delete(0,'end')
         for row in rows:
             lb.insert('end', self._bookmark_list_label(row))
+        for idx,row in enumerate(rows):
+            if self._bookmark_id(row) == self.active_bookmark_id:
+                lb.selection_set(idx)
+                lb.see(idx)
+                break
+        if hasattr(self, 'bookmark_count_var'):
+            total=len([self._normalize_bookmark_row(r) for r in self._load_bookmark_store()])
+            self.bookmark_count_var.set(f'{len(rows)} shown / {total} saved | {len(self.checked_bookmark_ids)} selected')
 
     def _serial_bookmark_selected(self):
+        self._ensure_bookmark_state()
         lb=getattr(self, 'serial_bookmarks_listbox', None)
         if not lb:
             return
@@ -1058,20 +1140,65 @@ class App(V9App):
         if idx < 0 or idx >= len(getattr(self, 'serial_bookmark_rows', [])):
             return
         row=self.serial_bookmark_rows[idx]
+        self.active_bookmark_id=self._bookmark_id(row)
         self._set_bookmark_field('bookmark_name', row.get('name') or '')
         self._set_bookmark_field('bookmark_group', row.get('group') or '')
         self._set_bookmark_field('bookmark_serial', row.get('serial') or '')
+        self._refresh_serial_bookmarks_ui()
+
+    def _toggle_active_bookmark_checked(self):
+        self._ensure_bookmark_state()
+        if not self.active_bookmark_id:
+            return self._set_bookmark_status('No active bookmark to toggle.', log_global=True)
+        if self.active_bookmark_id in self.checked_bookmark_ids:
+            self.checked_bookmark_ids.discard(self.active_bookmark_id)
+        else:
+            self.checked_bookmark_ids.add(self.active_bookmark_id)
+        self._refresh_serial_bookmarks_ui()
+
+    def _select_all_visible_bookmarks(self):
+        self._ensure_bookmark_state()
+        for row in getattr(self, 'serial_bookmark_rows', []):
+            self.checked_bookmark_ids.add(self._bookmark_id(row))
+        self._refresh_serial_bookmarks_ui()
+        self._set_bookmark_status(f'Selected {len(getattr(self, "serial_bookmark_rows", []))} visible bookmark(s).', log_global=True)
+
+    def _clear_checked_bookmarks(self):
+        self._ensure_bookmark_state()
+        self.checked_bookmark_ids.clear()
+        self._refresh_serial_bookmarks_ui()
+        self._set_bookmark_status('Cleared selected bookmarks.', log_global=True)
+
+    def _checked_bookmark_rows(self):
+        self._ensure_bookmark_state()
+        rows=[self._normalize_bookmark_row(r) for r in self._load_bookmark_store()]
+        return [r for r in rows if self._bookmark_id(r) in self.checked_bookmark_ids]
+
+    def _copy_checked_bookmark_serials(self):
+        rows=self._checked_bookmark_rows()
+        serials=[str(r.get('serial') or '').strip() for r in rows if str(r.get('serial') or '').strip()]
+        if not serials:
+            self._set_bookmark_status('Select one or more bookmarked serials to copy.', log_global=True)
+            return
+        self._copy_text_v13('\n'.join(serials), f'{len(serials)} selected bookmarked serial(s)')
+        self._set_bookmark_status(f'Copied {len(serials)} selected bookmarked serial(s).')
 
     def _bookmark_current_payload(self):
-        return {
+        self._ensure_bookmark_state()
+        payload={
             'name': self.field_vars.get('bookmark_name',tk.StringVar()).get().strip() or 'Untitled Serial',
             'group': self.field_vars.get('bookmark_group',tk.StringVar()).get().strip(),
             'serial': self.field_vars.get('bookmark_serial',tk.StringVar()).get().strip(),
         }
+        if self.active_bookmark_id:
+            payload['id']=self.active_bookmark_id
+        return payload
 
     def _serial_bookmark_action_local(self, aid):
+        self._ensure_bookmark_state()
         rows=self._load_bookmark_store(); cur=self._bookmark_current_payload()
         if aid=='serial_bookmark_new':
+            self.active_bookmark_id=''
             self._set_bookmark_field('bookmark_name', '')
             self._set_bookmark_field('bookmark_group', '')
             self._set_bookmark_field('bookmark_serial', '')
@@ -1089,7 +1216,13 @@ class App(V9App):
             self._set_bookmark_field('bookmark_name', cur['name'])
             return self.log(f"Duplicated bookmark: {cur['name']}")
         if aid=='serial_bookmark_delete':
-            serial=cur['serial']; before=len(rows); rows=[r for r in rows if r.get('serial')!=serial]
+            serial=cur['serial']; before=len(rows); rows=[self._normalize_bookmark_row(r) for r in rows]
+            if self.active_bookmark_id:
+                rows=[r for r in rows if self._bookmark_id(r)!=self.active_bookmark_id]
+                self.checked_bookmark_ids.discard(self.active_bookmark_id)
+                self.active_bookmark_id=''
+            else:
+                rows=[r for r in rows if r.get('serial')!=serial]
             self._save_bookmark_store(rows); self._refresh_serial_bookmarks_ui(); return self.log(f'Deleted {before-len(rows)} matching bookmark(s).')
         if aid=='serial_bookmark_copy':
             serial=cur['serial']
