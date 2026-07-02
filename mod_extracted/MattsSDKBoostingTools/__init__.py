@@ -9,6 +9,7 @@ from .player_economy import _cmd_givecurrency, _cmd_giveexperience
 from .serial_rewards import _cmd_give_serial
 from .inventory_capacity import start_auto_inventory_worker
 from .external_bridge import start_bridge
+from .external_app_launcher import _cmd_msbt_external_app
 
 __version__: str = "1.0"
 __version_info__: tuple[int, int] = (1, 0)
@@ -57,6 +58,7 @@ build_mod(
         CLOSE_GOLDEN_CHEST_KEY,
     ],
     commands=_panel_commands + [
+        _cmd_msbt_external_app,
         _cmd_give_serial,
         _cmd_givecurrency,
         _cmd_giveexperience,
