@@ -30,6 +30,12 @@ class App(V9App):
         self.bl4_selection_refreshing = False
         super().__init__()
         self.title("Matt's SDK Boosting Tools - External V22 Parts Codes GZO Visible")
+        try:
+            icon_path = RESOURCE_DIR / "app_icon.ico"
+            if icon_path.exists():
+                self.iconbitmap(str(icon_path))
+        except Exception:
+            pass
 
     def _movement_apply_fields(self):
         return [
@@ -1815,7 +1821,7 @@ class App(V9App):
 
     def _bookmark_store_path(self):
         from pathlib import Path
-        p=Path(__file__).resolve().parent/'resources'/'user_serial_bookmarks.json'
+        p=RESOURCE_DIR/'user_serial_bookmarks.json'
         return p
 
     def _ensure_bookmark_state(self):

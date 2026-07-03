@@ -4,9 +4,8 @@ import ast
 import json
 import re
 from pathlib import Path
+from external_app_paths import RESOURCE_DIR
 
-
-RESOURCE_DIR = Path(__file__).resolve().parent / "resources"
 
 ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{/}~"
 REV = {c: i for i, c in enumerate(ALPHABET)}

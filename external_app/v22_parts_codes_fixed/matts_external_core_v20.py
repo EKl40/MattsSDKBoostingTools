@@ -5,10 +5,9 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
 from urllib import request, error
+from external_app_paths import BASE_DIR, RESOURCE_DIR
 
 BRIDGE = "http://127.0.0.1:49774"
-BASE_DIR = Path(__file__).resolve().parent
-RESOURCE_DIR = BASE_DIR / "resources"
 SUPPORT_LINKS = {
     "Support on Ko-fi": "https://ko-fi.com/mattmab",
     "FunkYouSHiFT Twitch": "https://www.twitch.tv/FunkYouSHiFT",

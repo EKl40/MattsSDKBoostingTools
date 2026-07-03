@@ -19,11 +19,11 @@ import json
 import pkgutil
 import re
 from pathlib import Path
+from external_app_paths import RESOURCE_DIR
 from typing import Any, Iterable
 
 from external_serial_tools import human_to_serial
 
-RESOURCE_DIR = Path(__file__).resolve().parent / "resources"
 RULES_PATH = RESOURCE_DIR / "legit_rules_flat.json"
 
 _RULES_CACHE: dict[str, Any] | None = None
