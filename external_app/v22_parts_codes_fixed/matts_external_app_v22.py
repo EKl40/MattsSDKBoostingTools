@@ -139,9 +139,10 @@ class App(V9App):
             {'id':'local_legit_build_base85','label':'Build Base85','accent':'gold'},
             {'id':'legit_give_selected','label':'Give Active to Selected','accent':'gold','uses_fields':['legit_root_serial','legit_selected_parts','legit_unlock_modded','legit_level','legit_signature']},
             {'id':'legit_give_all','label':'Give Active to All','accent':'purple','uses_fields':['legit_root_serial','legit_selected_parts','legit_unlock_modded','legit_level','legit_signature']},
+            {'id':'legit_give_nonhost','label':'Give Active to Non-Host','accent':'cyan','uses_fields':['legit_root_serial','legit_selected_parts','legit_unlock_modded','legit_level','legit_signature']},
             {'id':'legit_clear_parts','label':'Clear Selected Parts','accent':'red'},
         ]
-        for i,a in enumerate(actions): self._button(btns,a,i,cols=5)
+        for i,a in enumerate(actions): self._button(btns,a,i,cols=6)
         selected, sel_inner = self._card_wrap(body, 'Selected composition / active build', '#8a2be2')
         selected.pack(fill='x', padx=6, pady=5)
         self.field_vars['legit_selected_parts'] = self.field_vars.get('legit_selected_parts') or tk.StringVar(value='')
@@ -231,6 +232,42 @@ class App(V9App):
             self._text_set('legit_human_output','')
             self._text_set('legit_base85_output','')
             self._set_legit_status(f'Legit build failed: {exc}')
+
+    def _legit_current_base85(self):
+        text = self._text_get('legit_base85_output').strip()
+        return text or str(getattr(self, 'legit_base85_output', '') or '').strip()
+
+    def _ensure_legit_base85(self):
+        serial = self._legit_current_base85()
+        if serial:
+            return serial
+        self._run_local_legit_build_base85()
+        return self._legit_current_base85()
+
+    def _deliver_legit_build(self, mode):
+        serial = self._ensure_legit_base85()
+        if not serial:
+            self._set_legit_status('No Base85 serial to give. Build failed or produced no output.')
+            return
+        try:
+            level = int(str(self.field_vars.get('legit_level', tk.StringVar(value='60')).get()).replace(',','').strip())
+        except Exception:
+            return messagebox.showerror('Invalid value', 'Legit Builder Level must be a number.')
+        aid = {'selected':'give_serial_selected','all':'give_serial_all','nonhost':'give_serial_nonhost'}[mode]
+        payload = {'serial_text': serial, 'serial_override_level': False, 'serial_level': level}
+        self.log(f'Delivering Legit Builder serial to {mode}...')
+        def work():
+            try:
+                ok, msg = self._set_bridge_target_from_field('legit_target_player', 'Legit Builder Target')
+                if not ok:
+                    self.after(0, lambda m=msg:self._set_legit_status(m))
+                    return
+                res=http_json('POST','/action',{'action':aid,'payload':payload,'timeout':10.0},timeout=18.0)
+                self.after(0, lambda:self._set_legit_status(res.get('message') or 'Legit Builder delivery requested.'))
+                self.after(0, self.poll_status)
+            except Exception as exc:
+                self.after(0, lambda:self._set_legit_status('Legit Builder delivery failed: '+repr(exc)))
+        threading.Thread(target=work, daemon=True).start()
 
     def _slot_line_from_part(self,p):
         table=str(p.get('table') or '').strip(); key=str(p.get('key') or '').strip()
@@ -2058,6 +2095,12 @@ class App(V9App):
             return self._run_local_legit_validate()
         if aid == 'local_legit_build_base85':
             return self._run_local_legit_build_base85()
+        if aid == 'legit_give_selected':
+            return self._deliver_legit_build('selected')
+        if aid == 'legit_give_all':
+            return self._deliver_legit_build('all')
+        if aid == 'legit_give_nonhost':
+            return self._deliver_legit_build('nonhost')
         if aid == 'legit_apply_max_passives':
             return self._legit_apply_max_passives_local()
         # Route all movement apply buttons with current field values even if the original card action did not declare them.
