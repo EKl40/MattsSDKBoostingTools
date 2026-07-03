@@ -1,6 +1,6 @@
 
 from __future__ import annotations
-import json, threading
+import json, threading, webbrowser
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -9,6 +9,10 @@ from urllib import request, error
 BRIDGE = "http://127.0.0.1:49774"
 BASE_DIR = Path(__file__).resolve().parent
 RESOURCE_DIR = BASE_DIR / "resources"
+SUPPORT_LINKS = {
+    "Support on Ko-fi": "https://ko-fi.com/mattmab",
+    "FunkYouSHiFT Twitch": "https://www.twitch.tv/FunkYouSHiFT",
+}
 LOCAL_RESOURCE_FILES = {
     "lootlemon_codes": "MattsSDKBoostingTools_lootlemon_codes.json",
     "item_pools": "item_pools.json",
@@ -67,11 +71,20 @@ class App(tk.Tk):
         tk.Label(left,text="MATT'S SDK BOOSTING TOOLS",fg='#00d4ff',bg='#090d17',font=('Segoe UI',9,'bold')).pack(anchor='w')
         tk.Label(left,text='Boost smarter. Not harder.',fg='#ff5db7',bg='#090d17',font=('Segoe UI',8,'bold')).pack(anchor='w')
         tk.Label(left,text='External control panel using bundled Matt resources; live commands run through the SDK bridge.',fg='#9fb3d9',bg='#090d17',font=('Segoe UI',8)).pack(anchor='w')
+        link_row=tk.Frame(left,bg='#090d17'); link_row.pack(anchor='w',pady=(3,0))
+        for label,url in SUPPORT_LINKS.items():
+            tk.Button(link_row,text=label,command=lambda u=url:self._open_support_link(u),bg='#172033',fg='#ffd447',relief='flat',padx=8,pady=3,font=('Segoe UI',8,'bold')).pack(side='left',padx=(0,6))
         tk.Button(top,text='Reconnect',command=self.load_layout,bg='#172033',fg='#f1f5ff',relief='flat',padx=14,pady=6).pack(side='right',padx=(6,0))
         tk.Button(top,text='Status',command=self.poll_status,bg='#172033',fg='#f1f5ff',relief='flat',padx=14,pady=6).pack(side='right')
         tk.Label(self,textvariable=self.status_var,fg='#9fb3d9',bg='#090d17',anchor='w',font=('Segoe UI',8)).pack(fill='x',padx=6,pady=(2,0))
         tk.Label(self,textvariable=self.log_var,fg='#21e05f',bg='#090d17',anchor='w',justify='left',wraplength=1800,font=('Segoe UI',8)).pack(fill='x',padx=6,pady=(0,3))
         sep=tk.Frame(self,bg='#333a48',height=1); sep.pack(fill='x',padx=6,pady=(0,3))
+    def _open_support_link(self,url):
+        try:
+            webbrowser.open(str(url), new=2)
+            self.log(f'Opened link: {url}')
+        except Exception as exc:
+            self.log(f'Could not open link: {exc!r}')
     def log(self,msg):
         self.log_var.set(str(msg))
         if self.output_text:
