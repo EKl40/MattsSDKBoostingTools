@@ -165,7 +165,7 @@ class App(V9App):
                 if vals and not var.get(): var.set(vals[0])
                 w.bind('<<ComboboxSelected>>',lambda e,fid=fid:self._legit_filter_changed(fid))
             else:
-                w=ttk.Entry(form,textvariable=var); w.bind('<KeyRelease>',lambda e:self._refresh_legit_root_and_slots())
+                w=ttk.Entry(form,textvariable=var); w.bind('<KeyRelease>',lambda e,fid=fid:self._refresh_legit_root_and_slots(fid))
             w.grid(row=r,column=1,sticky='ew',pady=2); self.widgets[fid]=w
         form.grid_columnconfigure(1,weight=1)
         btns=tk.Frame(inner,bg='#090d17'); btns.pack(fill='x',padx=8,pady=(4,8))
@@ -191,6 +191,40 @@ class App(V9App):
         tk.Label(top,text='Each panel is one Matt SDK slot/dependency. Add/Replace follows legit rules. Add x Qty preserves duplicates for modded/unlock builds.',bg='#090d17',fg='#9fb3d9',font=('Segoe UI',8)).pack(side='left')
         self.legit_slots_area=tk.Frame(slot_inner,bg='#090d17'); self.legit_slots_area.pack(fill='both',expand=True,padx=8,pady=6)
         self._refresh_combo('legit_manufacturer'); self._refresh_combo('legit_root_serial'); self._render_legit_slots()
+
+    def _clear_legit_selected_parts_for_root_change(self):
+        self.legit_selected_by_slot.clear()
+        self.field_vars['legit_selected_parts'].set('')
+        txt=self.widgets.get('legit_selected_parts')
+        if isinstance(txt, tk.Text):
+            txt.delete('1.0','end')
+        self.legit_human_output=''
+        self.legit_base85_output=''
+        self._text_set('legit_human_output','')
+        self._text_set('legit_base85_output','')
+
+    def _legit_filter_changed(self, fid):
+        before=self.field_vars.get('legit_root_serial', tk.StringVar()).get()
+        if fid == 'legit_type':
+            self._refresh_combo('legit_manufacturer')
+            self._refresh_combo('legit_root_serial')
+        elif fid == 'legit_manufacturer':
+            self._refresh_combo('legit_root_serial')
+        after=self.field_vars.get('legit_root_serial', tk.StringVar()).get()
+        if fid in ('legit_type','legit_manufacturer','legit_root_serial') and after != before:
+            self._clear_legit_selected_parts_for_root_change()
+            self._set_legit_status('Root changed; selected parts and generated output cleared.', log_global=False)
+        self._render_legit_slots()
+
+    def _refresh_legit_root_and_slots(self, fid=None):
+        if fid == 'legit_root_filter':
+            before=self.field_vars.get('legit_root_serial', tk.StringVar()).get()
+            self._refresh_combo('legit_root_serial')
+            after=self.field_vars.get('legit_root_serial', tk.StringVar()).get()
+            if after != before:
+                self._clear_legit_selected_parts_for_root_change()
+                self._set_legit_status('Root filter changed root; selected parts and generated output cleared.', log_global=False)
+        self._render_legit_slots()
 
     def _legit_output_area(self, body):
         wrap, inner = self._card_wrap(body, 'Legit Builder Output', '#8a2be2')
@@ -222,9 +256,10 @@ class App(V9App):
             widget.insert('1.0',str(value or ''))
 
     def _legit_payload_values(self):
+        self._sync_legit_selection_from_text()
         return {
             'root_serial': self.field_vars.get('legit_root_serial', tk.StringVar()).get(),
-            'selected_parts': '\n'.join(self._legit_selected_lines_without_root()),
+            'selected_parts': '\n'.join(self._legit_selected_lines_for_core()),
             'unlock_modded': self.field_vars.get('legit_unlock_modded', tk.StringVar(value='false')).get(),
             'level': self.field_vars.get('legit_level', tk.StringVar(value='60')).get(),
             'signature': self.field_vars.get('legit_signature', tk.StringVar(value='1')).get(),
@@ -311,6 +346,7 @@ class App(V9App):
         return f'{table}:{key}' if table and key else ''
 
     def _slot_selection_changed(self, slot, lb, force=False, append=False, qty=1):
+        self._sync_legit_selection_from_text()
         rows=self.legit_slot_parts.get(lb,[]); picks=[]
         for i in lb.curselection():
             try:
@@ -318,30 +354,93 @@ class App(V9App):
                 if line: picks.extend([line]*max(1,int(qty or 1)))
             except Exception: pass
         if not picks and not force: return
-        if append:
+        unlock = str(self.field_vars.get('legit_unlock_modded', tk.StringVar(value='false')).get() or '').lower() in ('1','true','yes','on')
+        if append and unlock:
             self.legit_selected_by_slot.setdefault(slot,[]).extend(picks)
+        elif append:
+            current = list(self.legit_selected_by_slot.get(slot, []))
+            for line in picks:
+                selected_for_test = self._legit_selected_lines_for_core(exclude_slot=slot) + current
+                ok, _reason = self._legit_is_part_line_allowed(selected_for_test, line)
+                if ok and line not in current:
+                    current.append(line)
+            self.legit_selected_by_slot[slot] = current
         else:
+            if not unlock:
+                try:
+                    root=self._legit_current_root()
+                    root_key=str(root.get('key') or '') if root else ''
+                    meta={str(x.get('slot') or '').lower():x for x in external_legit_builder.slot_counts(root_key,self._legit_selected_lines_for_core(exclude_slot=slot))}
+                    max_count=meta.get(str(slot).lower(),{}).get('max')
+                    if max_count is not None:
+                        picks=picks[:max(0,int(max_count))]
+                except Exception:
+                    pass
             self.legit_selected_by_slot[slot]=picks
         self._sync_legit_selected_text()
+        self._render_legit_slots()
+
+    def _legit_is_part_line_allowed(self, selected_for_test, line):
+        root = self._legit_current_root()
+        if not root:
+            return False, 'No root selected.'
+        root_key = str(root.get('key') or '').strip()
+        table, key = self._split_legit_part_line(line)
+        if not table or not key:
+            return False, 'Malformed part line.'
+        try:
+            return external_legit_builder.is_part_allowed(root_key, selected_for_test, key, table=table)
+        except Exception as exc:
+            return False, repr(exc)
 
     def _render_legit_slots(self):
         if not hasattr(self,'legit_slots_area'): return
         for child in self.legit_slots_area.winfo_children(): child.destroy()
+        self._sync_legit_selection_from_text()
         self.legit_slot_parts.clear(); root=self._legit_current_root()
         if not root:
             tk.Label(self.legit_slots_area,text='Pick a root variant to load its slot cards.',bg='#090d17',fg='#9fb3d9',font=('Segoe UI',9)).pack(anchor='w',padx=8,pady=8); return
-        deps=list(root.get('deps') or []); parts=list(root.get('parts') or []); filter_text=(self.field_vars.get('legit_part_filter',tk.StringVar()).get() or '').lower().strip(); grouped={d:[] for d in deps}
-        for p in parts:
-            slot=str(p.get('table') or '')
-            if slot not in grouped: grouped[slot]=[]
-            label=self._part_label(p)
-            if filter_text and filter_text not in label.lower() and filter_text not in slot.lower(): continue
-            grouped[slot].append((label,p))
+        root_key=str(root.get('key') or '').strip()
+        filter_text=(self.field_vars.get('legit_part_filter',tk.StringVar()).get() or '').strip()
+        unlock = str(self.field_vars.get('legit_unlock_modded', tk.StringVar(value='false')).get() or '').lower() in ('1','true','yes','on')
+        try:
+            deps=list(external_legit_builder.slots(root_key))
+        except Exception:
+            deps=list(root.get('deps') or [])
+        slot_meta={}
+        try:
+            slot_meta={str(x.get('slot') or '').lower():x for x in external_legit_builder.slot_counts(root_key,self._legit_selected_lines_for_core())}
+        except Exception:
+            slot_meta={}
+        grouped={d:[] for d in deps}
+        for slot in deps:
+            try:
+                meta=slot_meta.get(str(slot).lower(),{})
+                selected_for_test=self._legit_selected_lines_for_core(exclude_slot=slot) if (not unlock and meta.get('max') is not None and int(meta.get('max') or 0)==1) else self._legit_selected_lines_for_core()
+            except Exception:
+                selected_for_test=self._legit_selected_lines_for_core()
+            try:
+                candidates=external_legit_builder.search_parts(root_key,filter_text,table=slot,limit=1000)
+            except Exception:
+                candidates=[]
+            for p in candidates:
+                if not unlock:
+                    try:
+                        ok,_reason=external_legit_builder.is_part_allowed(root_key,selected_for_test,p.get('key'),table=p.get('table'))
+                    except Exception:
+                        ok=False
+                    if not ok:
+                        continue
+                label=self._part_label(p)
+                grouped.setdefault(slot,[]).append((label,p))
         cols=3
-        for idx,slot in enumerate([d for d in deps if grouped.get(d)] + [d for d in grouped if d not in deps and grouped.get(d)]):
+        for idx,slot in enumerate([d for d in deps if grouped.get(d) or self.legit_selected_by_slot.get(d)] + [d for d in grouped if d not in deps and grouped.get(d)]):
             r,c=divmod(idx,cols); wrap,inner=self._card_wrap(self.legit_slots_area,slot,'#333a48'); wrap.grid(row=r,column=c,sticky='nsew',padx=4,pady=4)
             self.legit_slots_area.grid_columnconfigure(c,weight=1,uniform='slot'); self.legit_slots_area.grid_rowconfigure(r,weight=1)
-            current=len(self.legit_selected_by_slot.get(slot,[])); tk.Label(inner,text=f'{len(grouped[slot])} available part(s) | selected in slot: {current}',bg='#090d17',fg='#8c99b5',font=('Segoe UI',8),anchor='w').pack(fill='x',padx=6,pady=(3,0))
+            meta=slot_meta.get(str(slot).lower(),{})
+            mn='?' if meta.get('min') is None else str(meta.get('min'))
+            mx='?' if meta.get('max') is None else str(meta.get('max'))
+            current=len(self.legit_selected_by_slot.get(slot,[])); tk.Label(inner,text=f'{len(grouped.get(slot,[]))} available part(s) | selected {current} | min {mn} | max {mx}',bg='#090d17',fg='#8c99b5',font=('Segoe UI',8),anchor='w').pack(fill='x',padx=6,pady=(3,0))
             lb=tk.Listbox(inner,height=7,selectmode='extended',bg='#0e1320',fg='#d7def5',selectbackground='#1f3b63',relief='flat',font=('Consolas',8),exportselection=False)
             lb.pack(fill='both',expand=True,padx=6,pady=4); self.legit_slot_parts[lb]=[(slot,label,p) for label,p in grouped[slot]]
             for label,p in grouped[slot]: lb.insert('end',label)
@@ -356,6 +455,38 @@ class App(V9App):
     def _legit_selected_lines_without_root(self):
         raw = self.field_vars.get('legit_selected_parts', tk.StringVar(value='')).get() or ''
         return [line.strip() for line in raw.splitlines() if line.strip() and not line.strip().lower().startswith('root:')]
+
+    def _split_legit_part_line(self, line):
+        text=str(line or '').strip()
+        if not text or text.lower().startswith('root:') or ':' not in text:
+            return '', ''
+        table,key=text.split(':',1)
+        return table.strip(), key.strip()
+
+    def _legit_selected_lines_for_core(self, exclude_slot=None):
+        out=[]
+        skip=str(exclude_slot or '').strip().lower()
+        for slot in sorted(self.legit_selected_by_slot.keys()):
+            if skip and str(slot).strip().lower()==skip:
+                continue
+            for val in self.legit_selected_by_slot.get(slot,[]):
+                table,key=self._split_legit_part_line(val)
+                if table and key:
+                    out.append(f'{table}:{key}')
+        return out
+
+    def _sync_legit_selection_from_text(self):
+        raw = self.field_vars.get('legit_selected_parts', tk.StringVar(value='')).get() or ''
+        txt = self.widgets.get('legit_selected_parts')
+        if isinstance(txt, tk.Text):
+            raw = txt.get('1.0','end-1c')
+            self.field_vars['legit_selected_parts'].set(raw)
+        rebuilt={}
+        for line in raw.splitlines():
+            table,key=self._split_legit_part_line(line)
+            if table and key:
+                rebuilt.setdefault(table,[]).append(f'{table}:{key}')
+        self.legit_selected_by_slot = rebuilt
 
     def _sync_legit_selected_text(self):
         # Keep the bridge payload clean: only selected part lines go into legit_selected_parts.
@@ -380,22 +511,23 @@ class App(V9App):
 
     def _legit_apply_max_passives_local(self):
         import re
+        self._sync_legit_selection_from_text()
         root = self._legit_current_root()
         if not root:
-            return self.log('Choose a class mod root first before using Add All Max Passives.')
+            return self._set_legit_status('Choose a class mod root first before using Add All Max Passives.')
         if str(root.get('item_type') or '').strip().lower() != 'class_mod':
-            return self.log('Add All Max Passives is only for class mod roots.')
+            return self._set_legit_status('Add All Max Passives is only for class mod roots.')
         unlock = str(self.field_vars.get('legit_unlock_modded', tk.StringVar(value='false')).get() or '').lower() in ('1','true','yes','on')
         if not unlock:
-            return self.log('Turn on Unlock rules for modded gear before adding every max passive.')
+            return self._set_legit_status('Turn on Unlock rules for modded gear before adding every max passive.')
         root_key = str(root.get('key') or '').strip()
         if not root_key:
-            return self.log('No class mod root key selected.')
+            return self._set_legit_status('No class mod root key selected.')
         best = {}
         try:
             parts = external_legit_builder.search_parts(root_key, 'passive_', table='passive_points', limit=2000)
         except Exception as exc:
-            return self.log(f'Legit passive max scan failed for {root_key}: {exc!r}')
+            return self._set_legit_status(f'Legit passive max scan failed for {root_key}: {exc!r}')
         scanned = len(parts)
         for p in parts:
             key = str(p.get('key') or p.get('internal') or '').strip()
@@ -417,12 +549,16 @@ class App(V9App):
                 best[base] = (tier, line)
         max_lines = [line for _tier, line in sorted(best.values(), key=lambda item: item[1].lower())]
         if not max_lines:
-            return self.log(f'No passive_points max-tier parts found for {root_key}. Scanned {scanned} passive parts.')
+            return self._set_legit_status(f'No passive_points max-tier parts found for {root_key}. Scanned {scanned} passive parts.')
         # Replace existing passive_points selection with exactly the max-tier set, preserving all other selected slots.
         self.legit_selected_by_slot['passive_points'] = list(max_lines)
         self._sync_legit_selected_text()
         self._render_legit_slots()
-        self.log(f'Added {len(max_lines)} max-tier passive point parts for {root.get("build_label") or root_key}. Replaced existing passive_points selections.')
+        self.legit_human_output = ''
+        self.legit_base85_output = ''
+        self._text_set('legit_human_output', '')
+        self._text_set('legit_base85_output', '')
+        self._set_legit_status(f'Added {len(max_lines)} max-tier passive point parts for {root.get("build_label") or root_key}. Replaced existing passive_points selections.')
 
 
 
