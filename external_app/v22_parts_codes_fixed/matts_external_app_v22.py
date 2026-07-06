@@ -13,6 +13,10 @@ import external_validator
 from matts_external_core_v20 import ACCENT_COLORS, http_json, RESOURCE_DIR
 from matts_external_legit_travel_v20 import App as V9App
 
+MAX_SELECTED_SERIAL_DELIVERY = 50
+MAX_MULTI_SERIAL_DELIVERY = 150
+MAX_SERIAL_DELIVERY_CHARS = 20000
+
 MOVEMENT_DEFAULTS = {
     'movement_speed_scale': '1.00',
     'movement_walk_speed': '600',
@@ -2448,6 +2452,13 @@ class App(V9App):
     def _deliver_bl4_codes(self, mode):
         serials=self._selected_bl4_serials()
         if not serials: return self._set_bl4_status('Select one or more valid GZO serials first.', log_global=True)
+        if mode == 'selected' and len(serials) > MAX_SELECTED_SERIAL_DELIVERY:
+            return self._set_bl4_status('Too many selected serials for reliable selected-player delivery. Select 50 or fewer, or use smaller batches.', log_global=True)
+        if mode in ('all', 'nonhost') and len(serials) > MAX_MULTI_SERIAL_DELIVERY:
+            return self._set_bl4_status(f'Too many serials for reliable {mode} delivery. Select {MAX_MULTI_SERIAL_DELIVERY} or fewer, or use smaller batches.', log_global=True)
+        oversized=[i+1 for i,s in enumerate(serials) if len(str(s or '')) > MAX_SERIAL_DELIVERY_CHARS]
+        if oversized:
+            return self._set_bl4_status(f'Serial {oversized[0]} exceeds the {MAX_SERIAL_DELIVERY_CHARS} character delivery limit.', log_global=True)
         try: level=int(str(self.field_vars.get('code_delivery_level', tk.StringVar(value='60')).get()).replace(',','').strip())
         except Exception: return messagebox.showerror('Invalid value','Delivery Level must be a number.')
         override=str(self.field_vars.get('code_override_level', tk.StringVar(value='false')).get()).lower() in ('1','true','yes','on')

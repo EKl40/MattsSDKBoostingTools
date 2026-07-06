@@ -1196,7 +1196,11 @@ def serial_delivery_progress() -> dict[str, Any]:
     if stage in ("pre_open_wait", "post_open_wait", "wait"):
         wait_until = float(seq.get("wait_until") or 0.0)
         wait_remaining = max(0.0, wait_until - now)
-        duration = _SERIAL_DELIVERY_PRE_OPEN_DELAY_SEC if stage == "pre_open_wait" else _SERIAL_DELIVERY_POST_OPEN_DELAY_SEC
+        duration = _SERIAL_DELIVERY_PRE_OPEN_DELAY_SEC
+        if stage != "pre_open_wait":
+            duration = seq.get("post_open_delay")
+            if duration is None:
+                duration = _serial_delivery_post_open_delay(seq.get("mode"))
         try:
             duration = max(0.001, float(duration))
         except Exception:
@@ -1244,7 +1248,10 @@ def _next_loyalty_reward_name() -> Tuple[str, int, int]:
 
 
 def _queue_serial_delivery_sequence(serials: List[str], player_indices: List[int], *, scope_label: str, mode: str | None = None) -> None:
-    chunks = _serial_delivery_chunks(serials, mode)
+    mode_key = _serial_delivery_mode_key(mode)
+    max_serials = _serial_delivery_max_serials_per_chunk(mode_key)
+    post_open_delay = _clamp_serial_delivery_delay(_serial_delivery_post_open_delay(mode_key))
+    chunks = _serial_delivery_chunks(serials, mode_key)
     if not chunks:
         _log_error("No serial strings after delivery chunking.")
         return
@@ -1268,7 +1275,8 @@ def _queue_serial_delivery_sequence(serials: List[str], player_indices: List[int
     if len(chunks) > 1:
         _log_info(
             f"Auto-sequencing {len(serials)} serial(s) for {scope_label}: "
-            f"{_serial_delivery_chunks_desc(chunks)}. Each package will be opened before the next delivery."
+            f"{_serial_delivery_chunks_desc(chunks)}. Max {max_serials} serial(s) per package; "
+            f"{post_open_delay:.2f}s post-open delay. Each package will be opened before the next delivery."
         )
     else:
         _log_info(f"Serial delivery queued for {scope_label}: 1 package, {len(serials)} serial(s).")
@@ -1283,6 +1291,8 @@ def _queue_serial_delivery_sequence(serials: List[str], player_indices: List[int
         "attempts": 0,
         "before_counts": {},
         "wait_until": 0.0,
+        "mode": mode_key,
+        "post_open_delay": post_open_delay,
     })
     _process_pending_serial_delivery_sequences()
 
@@ -1386,8 +1396,12 @@ def _process_pending_serial_delivery_sequences() -> None:
             if stage == "open":
                 _set_serial_delivery_status(f"Serial delivery {idx + 1}/{len(chunks)}: opening reward packages", hold_sec=30.0, log=True)
                 _open_all_live_reward_packages()
+                post_open_delay = seq.get("post_open_delay")
+                if post_open_delay is None:
+                    post_open_delay = _serial_delivery_post_open_delay(seq.get("mode"))
+                post_open_delay = _clamp_serial_delivery_delay(post_open_delay)
                 seq["stage"] = "post_open_wait"
-                seq["wait_until"] = time.time() + _SERIAL_DELIVERY_POST_OPEN_DELAY_SEC
+                seq["wait_until"] = time.time() + post_open_delay
                 seq["attempts"] = 0
                 remaining.append(seq)
                 continue
@@ -1573,11 +1587,12 @@ def _do_give_serial(
                 serials,
                 [int(serial_only_player_index)],
                 scope_label=f"player index {int(serial_only_player_index)} via all-player reward",
+                mode="selected",
             )
             return
         indices = _all_party_player_indices_for_serial_delivery()
         if indices:
-            _do_give_serial_to_player_indices(serials, indices, scope_label="all party players")
+            _do_give_serial_to_player_indices(serials, indices, scope_label="all party players", mode="all")
             return
     # Local fallback keeps old behavior, but still opens live packages after each chunk.
     chunks = _chunk_serials_for_delivery(serials)

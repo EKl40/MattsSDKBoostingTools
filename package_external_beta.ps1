@@ -7,6 +7,7 @@ $ExeBuildFolder = Join-Path $RepoRoot "dist\MattsBoostingToolsExternal"
 $AppSource = Join-Path $RepoRoot "external_app\v22_parts_codes_fixed"
 $ResourcesSource = Join-Path $AppSource "resources"
 $SdkMod = Join-Path $RepoRoot "MattsSDKBoostingTools.sdkmod"
+$SdkBuildScript = Join-Path $RepoRoot "build_sdkmod.ps1"
 $ZipPath = Join-Path $RepoRoot "MSBT_External_Beta.zip"
 
 function Assert-UnderRepo {
@@ -20,6 +21,9 @@ function Assert-UnderRepo {
 
 if (-not (Test-Path (Join-Path $ExeBuildFolder "MattsBoostingToolsExternal.exe"))) {
     throw "External exe not found. Run .\build_external_exe.ps1 first."
+}
+if (Test-Path $SdkBuildScript) {
+    & $SdkBuildScript
 }
 if (-not (Test-Path $SdkMod)) {
     throw "SDK mod package not found: $SdkMod"
