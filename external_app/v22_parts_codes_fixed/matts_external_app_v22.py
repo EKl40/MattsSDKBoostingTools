@@ -28,6 +28,10 @@ class App(V9App):
         self.validator_run_id = 0
         self.validator_progress = {"running": False, "label": "Idle", "done": 0, "total": 0, "passed": 0, "failed": 0}
         self.bl4_selection_refreshing = False
+        self.auto_inventory_after_id = None
+        self.auto_inventory_in_flight = False
+        self.auto_inventory_last_log = 0.0
+        self.auto_inventory_interval_ms = 2000
         super().__init__()
         self.title("Matt's SDK Boosting Tools - External V22 Parts Codes GZO Visible")
         try:
@@ -36,6 +40,112 @@ class App(V9App):
                 self.iconbitmap(str(icon_path))
         except Exception:
             pass
+
+    def _truthy(self, value):
+        return str(value).strip().lower() in ('1','true','yes','on')
+
+    def _auto_inventory_enabled(self):
+        var = self.field_vars.get('auto_inventory_sizes')
+        return self._truthy(var.get() if var else '')
+
+    def _auto_inventory_payload(self, enabled=True):
+        def as_int(fid, default):
+            raw = self.field_vars.get(fid, tk.StringVar(value=str(default))).get()
+            return int(str(raw).replace(',','').strip())
+        return {
+            'enabled': bool(enabled),
+            'backpack_size': as_int('backpack_size', 999),
+            'bank_size': as_int('bank_size', 1500),
+        }
+
+    def _auto_inventory_log(self, message, *, force=False):
+        now = time.monotonic()
+        if force or now - float(self.auto_inventory_last_log or 0.0) >= 30.0:
+            self.auto_inventory_last_log = now
+            self.log(message)
+
+    def _field_changed(self, field):
+        super()._field_changed(field)
+        if field.get('id') == 'auto_inventory_sizes':
+            self._auto_inventory_toggle_changed()
+
+    def _auto_inventory_toggle_changed(self):
+        if self._auto_inventory_enabled():
+            self._auto_inventory_log('Auto inventory enabled.', force=True)
+            self._schedule_auto_inventory_apply(250)
+        else:
+            self._cancel_auto_inventory_apply()
+            self._send_auto_inventory_disabled()
+            self._auto_inventory_log('Auto inventory disabled.', force=True)
+
+    def _schedule_auto_inventory_apply(self, delay_ms=None):
+        if not self._auto_inventory_enabled():
+            return
+        if self.auto_inventory_after_id is not None:
+            try:
+                self.after_cancel(self.auto_inventory_after_id)
+            except Exception:
+                pass
+        delay = self.auto_inventory_interval_ms if delay_ms is None else int(delay_ms)
+        self.auto_inventory_after_id = self.after(delay, self._auto_inventory_tick)
+
+    def _cancel_auto_inventory_apply(self):
+        if self.auto_inventory_after_id is not None:
+            try:
+                self.after_cancel(self.auto_inventory_after_id)
+            except Exception:
+                pass
+        self.auto_inventory_after_id = None
+        self.auto_inventory_in_flight = False
+
+    def _send_auto_inventory_disabled(self):
+        try:
+            payload = self._auto_inventory_payload(enabled=False)
+        except Exception:
+            payload = {'enabled': False, 'backpack_size': 999, 'bank_size': 1500}
+        def work():
+            try:
+                http_json('POST','/action',{'action':'auto_inventory_sizes','payload':payload,'timeout':10.0},timeout=8.0)
+            except Exception:
+                pass
+        threading.Thread(target=work,daemon=True).start()
+
+    def _auto_inventory_tick(self):
+        self.auto_inventory_after_id = None
+        if not self._auto_inventory_enabled():
+            return
+        if self.auto_inventory_in_flight:
+            self._schedule_auto_inventory_apply()
+            return
+        try:
+            payload = self._auto_inventory_payload(enabled=True)
+        except Exception:
+            self._auto_inventory_log('Automatic inventory sizing waiting for valid backpack/bank numbers.', force=True)
+            self._schedule_auto_inventory_apply()
+            return
+        self.auto_inventory_in_flight = True
+        def done(message, applied=0):
+            self.auto_inventory_in_flight = False
+            if not self._auto_inventory_enabled():
+                return
+            if applied:
+                self._auto_inventory_log(message or 'Auto-applied inventory sizes to party.', force=True)
+            else:
+                self._auto_inventory_log(message or 'Automatic inventory sizing checked; waiting for players.')
+            self._schedule_auto_inventory_apply()
+        def failed(exc):
+            self.auto_inventory_in_flight = False
+            if not self._auto_inventory_enabled():
+                return
+            self._auto_inventory_log('Bridge offline / waiting for players for automatic inventory sizing.')
+            self._schedule_auto_inventory_apply()
+        def work():
+            try:
+                res = http_json('POST','/action',{'action':'auto_inventory_sizes','payload':payload,'timeout':10.0},timeout=12.0)
+                self.after(0, lambda r=res: done(r.get('message') or '', int(r.get('applied') or 0)))
+            except Exception as exc:
+                self.after(0, lambda e=exc: failed(e))
+        threading.Thread(target=work,daemon=True).start()
 
     def _movement_apply_fields(self):
         return [

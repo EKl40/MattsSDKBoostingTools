@@ -238,6 +238,11 @@ class App(tk.Tk):
             txt=tk.Text(row,height=h,bg='#181417',fg='#f1f5ff',insertbackground='#f1f5ff',relief='flat',wrap='word',font=('Consolas',8))
             txt.insert('1.0',var.get()); txt.pack(side='left',fill='x',expand=True)
             txt.bind('<KeyRelease>',lambda e,v=var,w=txt:v.set(w.get('1.0','end-1c'))); self.widgets[fid]=txt
+        elif typ in ('checkbox','bool'):
+            default=str(field.get('default','false')).strip().lower()
+            var.set('true' if default in ('1','true','yes','on') else 'false')
+            chk=tk.Checkbutton(row,variable=var,onvalue='true',offvalue='false',command=lambda f=field:self._field_changed(f),bg='#090d17',activebackground='#090d17',fg='#cfd8f3',activeforeground='#f1f5ff',selectcolor='#211b1f',relief='flat')
+            chk.pack(side='left',anchor='w'); self.widgets[fid]=chk
         else:
             ent=ttk.Entry(row,textvariable=var); ent.pack(side='left',fill='x',expand=True); self.widgets[fid]=ent
     def _values_for_field(self,field):

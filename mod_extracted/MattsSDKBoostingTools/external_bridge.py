@@ -487,6 +487,12 @@ def _handle_action(action: str, payload: dict[str, Any] | None = None) -> dict[s
             payload.get("backpack_size") or 1000,
             payload.get("bank_size") or 1000,
         )
+    if action == "auto_inventory_sizes":
+        return backend_actions.auto_apply_inventory_sizes(
+            payload.get("backpack_size") or 1000,
+            payload.get("bank_size") or 1000,
+            payload.get("enabled", True),
+        )
     if action == "max_currency":
         return backend_actions.max_currency()
     if action == "max_eridium":

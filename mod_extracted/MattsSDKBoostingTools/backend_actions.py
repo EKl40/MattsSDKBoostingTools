@@ -13,6 +13,7 @@ from mods_base import ENGINE, get_pc
 from . import player_economy, serial_rewards
 from .golden_chest_keybinds import _close_golden_chest, _open_golden_chest
 from .inventory_capacity import (
+    auto_apply_inventory_sizes_if_needed,
     clamp_container_size,
     set_inventory_sizes_for_all_party,
     set_inventory_sizes_for_party_index,
@@ -288,6 +289,28 @@ def set_inventory_sizes_all_party(backpack_size: object, bank_size: object) -> d
         return {"ok": True, "message": f"Set inventory sizes for {count} party player(s): backpack {bp}, bank {bank}."}
     except Exception as exc:
         return {"ok": False, "message": f"Set backpack/bank size for all party players failed: {exc!r}"}
+
+
+def auto_apply_inventory_sizes(backpack_size: object, bank_size: object, enabled: object = True) -> dict[str, Any]:
+    try:
+        is_enabled = str(enabled).strip().lower() not in ("", "0", "false", "off", "no", "none")
+        bp = clamp_container_size(int(backpack_size), 1000)
+        bank = clamp_container_size(int(bank_size), 1000)
+    except Exception:
+        return {"ok": False, "message": "Backpack and Bank Size must be numbers."}
+    try:
+        count = auto_apply_inventory_sizes_if_needed(is_enabled, bp, bank, source="external-bridge")
+        if not is_enabled:
+            return {"ok": True, "message": "Automatic inventory sizing disabled.", "applied": 0}
+        if count:
+            return {
+                "ok": True,
+                "message": f"Auto-applied inventory sizes to {count} party player(s): backpack {bp}, bank {bank}.",
+                "applied": count,
+            }
+        return {"ok": True, "message": "Automatic inventory sizing checked; waiting for loaded party players.", "applied": 0}
+    except Exception as exc:
+        return {"ok": False, "message": f"Automatic inventory update failed: {exc!r}"}
 
 
 def give_currency(kind_or_index: object, amount: object) -> dict[str, Any]:

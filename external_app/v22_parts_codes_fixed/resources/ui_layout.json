@@ -255,6 +255,12 @@
               "label": "Bank Size",
               "type": "int",
               "default": 1500
+            },
+            {
+              "id": "auto_inventory_sizes",
+              "label": "Automatic Backpack and Bank Size for Party",
+              "type": "checkbox",
+              "default": false
             }
           ],
           "actions": [
