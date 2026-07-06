@@ -17,6 +17,7 @@ from unrealsdk import find_all, find_class, find_object, make_struct
 
 from .party_helpers import (
     _gbc_find_pc_for_player_state,
+    _gbc_resolve_player_display_name,
     _gbc_resolve_player_index_for_name_substring,
     _gbc_run_session_timer_from_give_serial,
     _gbc_session_world_and_gamestate,
@@ -64,12 +65,14 @@ _SERIAL_DELIVERY_SAFE_SERIALS_SELECTED = 25
 _SERIAL_DELIVERY_SAFE_SERIALS_MULTI = 20
 _SERIAL_DELIVERY_PER_SERIAL_OVERHEAD_CHARS = 16
 # Automatic chunk delivery pacing.  Keep this main-thread/tick driven; no sleeps.
-_SERIAL_DELIVERY_PRE_OPEN_DELAY_SEC = 1.00
+_SERIAL_DELIVERY_PRE_OPEN_DELAY_SEC = 0.75
 _SERIAL_DELIVERY_POST_OPEN_DELAY_SEC = 5.00
-_SERIAL_DELIVERY_SELECTED_POST_OPEN_DELAY_SEC = 5.00
-_SERIAL_DELIVERY_MULTI_POST_OPEN_DELAY_SEC = 6.00
+_SERIAL_DELIVERY_SELECTED_POST_OPEN_DELAY_SEC = 3.00
+_SERIAL_DELIVERY_MULTI_POST_OPEN_DELAY_SEC = 4.00
 _SERIAL_DELIVERY_PATCH_MAX_ATTEMPTS = 120
 _SERIAL_DELIVERY_PATCH_LOG_EVERY = 30
+_SERIAL_DELIVERY_TARGET_RETRY_DELAY_SEC = 1.00
+_SERIAL_DELIVERY_TARGET_WAIT_MAX_SEC = 90.00
 _SERIAL_DELIVERY_BACKPACK_HEADROOM = 100
 
 def _clamp_serial_delivery_delay(value: float) -> float:
@@ -478,6 +481,87 @@ def _pc_for_player_index(player_index: int) -> Optional[Any]:
     if ps is None:
         return None
     return _gbc_find_pc_for_player_state(ps, world)
+
+
+def _player_name_for_index(player_index: int) -> str:
+    _world, gs = _gbc_session_world_and_gamestate()
+    if gs is None:
+        return ""
+    pa = getattr(gs, "PlayerArray", None)
+    if pa is None:
+        return ""
+    try:
+        if player_index < 0 or player_index >= len(pa):
+            return ""
+        ps = pa[player_index]
+    except Exception:
+        return ""
+    try:
+        return str(_gbc_resolve_player_display_name(ps) or "").strip()
+    except Exception:
+        return ""
+
+
+def _current_party_index_names() -> List[Tuple[int, str]]:
+    _world, gs = _gbc_session_world_and_gamestate()
+    if gs is None:
+        return []
+    pa = getattr(gs, "PlayerArray", None)
+    if pa is None:
+        return []
+    try:
+        n = len(pa)
+    except Exception:
+        return []
+    out: List[Tuple[int, str]] = []
+    for i in range(n):
+        try:
+            ps = pa[i]
+        except Exception:
+            ps = None
+        if ps is None:
+            continue
+        try:
+            out.append((i, str(_gbc_resolve_player_display_name(ps) or "").strip()))
+        except Exception:
+            out.append((i, ""))
+    return out
+
+
+def _serial_delivery_current_targets(seq: dict[str, Any]) -> List[int]:
+    names = [str(n or "").strip() for n in list(seq.get("target_names") or []) if str(n or "").strip()]
+    if names:
+        current = _current_party_index_names()
+        out: List[int] = []
+        seen: set[int] = set()
+        for wanted in names:
+            wanted_l = wanted.lower()
+            match: Optional[int] = None
+            for idx, name in current:
+                if name.lower() == wanted_l:
+                    match = idx
+                    break
+            if match is None:
+                for idx, name in current:
+                    if wanted_l and wanted_l in name.lower():
+                        match = idx
+                        break
+            if match is not None and match not in seen:
+                seen.add(match)
+                out.append(match)
+        return out
+    targets: List[int] = []
+    seen: set[int] = set()
+    for idx in list(seq.get("targets") or []):
+        try:
+            i = int(idx)
+        except Exception:
+            continue
+        if i in seen:
+            continue
+        seen.add(i)
+        targets.append(i)
+    return targets
 
 
 def _manager_for_player_index(player_index: int) -> Optional[Any]:
@@ -1369,6 +1453,7 @@ def _queue_serial_delivery_sequence(serials: List[str], player_indices: List[int
     if not targets:
         _log_error("Give_Serial: no target player indices to patch.")
         return
+    target_names = [name for name in (_player_name_for_index(i) for i in targets) if name]
 
     _ensure_backpack_capacity_for_indices(targets, len(serials))
     _gbc_run_session_timer_from_give_serial()
@@ -1385,16 +1470,21 @@ def _queue_serial_delivery_sequence(serials: List[str], player_indices: List[int
         "serials": list(serials),
         "chunks": chunks,
         "targets": targets,
+        "target_names": target_names,
         "scope_label": scope_label,
         "index": 0,
         "stage": "deliver",
         "attempts": 0,
         "before_counts": {},
+        "target_retry_after": 0.0,
+        "target_wait_started": 0.0,
+        "target_wait_last_log": 0.0,
         "wait_until": 0.0,
         "mode": mode_key,
         "post_open_delay": post_open_delay,
     })
-    _process_pending_serial_delivery_sequences()
+    # Let the game tick hook advance the sequence.  Processing immediately from a
+    # button/HTTP action can stall the host and starve remote clients.
 
 
 def _process_pending_serial_delivery_sequences() -> None:
@@ -1405,7 +1495,7 @@ def _process_pending_serial_delivery_sequences() -> None:
     for seq in list(_pending_serial_delivery_sequences):
         try:
             chunks = list(seq.get("chunks") or [])
-            targets = list(seq.get("targets") or [])
+            targets = _serial_delivery_current_targets(seq)
             scope_label = str(seq.get("scope_label") or "targeted players")
             idx = int(seq.get("index") or 0)
             stage = str(seq.get("stage") or "deliver")
@@ -1436,6 +1526,10 @@ def _process_pending_serial_delivery_sequences() -> None:
             if stage == "deliver":
                 chunk = chunks[idx]
                 reward_name, slot, n = _next_loyalty_reward_name()
+                retry_after = float(seq.get("target_retry_after") or 0.0)
+                if now < retry_after:
+                    remaining.append(seq)
+                    continue
                 msg = (
                     f"Delivering serial package {idx + 1}/{len(chunks)} to {scope_label}: "
                     f"{len(chunk)} serial(s), {_serial_delivery_char_count(chunk)} raw chars / "
@@ -1445,8 +1539,28 @@ def _process_pending_serial_delivery_sequences() -> None:
                 _log_info(msg)
                 before_counts = _snapshot_player_package_counts(targets)
                 if not before_counts:
-                    _set_serial_delivery_status(f"Serial delivery stopped: no reward managers found for {scope_label}", hold_sec=20.0, log=True)
+                    started = float(seq.get("target_wait_started") or 0.0) or now
+                    last_log = float(seq.get("target_wait_last_log") or 0.0)
+                    if now - started >= _SERIAL_DELIVERY_TARGET_WAIT_MAX_SEC:
+                        _set_serial_delivery_status(
+                            f"Serial delivery stopped: target unavailable for {scope_label} after {_SERIAL_DELIVERY_TARGET_WAIT_MAX_SEC:.0f}s",
+                            hold_sec=20.0,
+                            log=True,
+                        )
+                        continue
+                    if now - last_log >= 5.0:
+                        _set_serial_delivery_status(
+                            f"Serial delivery paused: waiting for target reward manager for {scope_label}",
+                            hold_sec=15.0,
+                            log=True,
+                        )
+                        seq["target_wait_last_log"] = now
+                    seq["target_wait_started"] = started
+                    seq["target_retry_after"] = now + _SERIAL_DELIVERY_TARGET_RETRY_DELAY_SEC
+                    remaining.append(seq)
                     continue
+                seq["target_wait_started"] = 0.0
+                seq["target_retry_after"] = 0.0
                 if not _give_reward_def(reward_name, True):
                     _set_serial_delivery_status(f"Serial delivery stopped: GiveRewardAllPlayers failed on {idx + 1}/{len(chunks)}", hold_sec=20.0, log=True)
                     continue
@@ -1520,20 +1634,16 @@ def _do_give_serial_to_player_indices(
     mode: str | None = None,
 ) -> None:
     """
-    Hybrid party-safe serial delivery.
+    Queue party-safe serial delivery without blocking the host.
 
-    This intentionally uses the older working delivery model for each package:
-    snapshot -> GiveRewardAllPlayers -> patch the target players' newest package.
-
-    The newer reliability pieces are kept:
-    - large serial sets are split into safe chunks;
-    - each chunk is force-opened after the serials are patched;
-    - a short post-open gap is kept before the next chunk so remote clients can
-      actually consume the previous reward mail before another package arrives.
-
-    This avoids the newer delayed-open state machine, which could leave chunks
-    waiting in the queue and make serial mail unreliable for remote players.
+    The inline delivery loop used sleeps between patch/open/chunk steps.  In a
+    live multiplayer session that can freeze the host long enough for clients to
+    miss rewards or disconnect.  Keep the public helper name for existing callers,
+    but route through the tick-driven verifier/sequence instead.
     """
+    _queue_serial_delivery_sequence(serials, player_indices, scope_label=scope_label, mode=mode)
+    return
+
     if not serials:
         _log_error("No serial strings after parsing (comma-separated non-empty segments).")
         return
