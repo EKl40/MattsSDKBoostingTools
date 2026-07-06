@@ -22,6 +22,10 @@ class App(V9App):
         self.bl4_active_id = ''
         self.bl4_selected_ids = set()
         self.bl4_status_message = ''
+        self.bl4_progress_message = ''
+        self.bl4_mattmab_results = {}
+        self.bl4_mattmab_thread = None
+        self.bl4_mattmab_run_id = 0
         self.bl4_cache_autoload_attempted = False
         self.validator_thread = None
         self.validator_cancel_event = threading.Event()
@@ -890,6 +894,13 @@ class App(V9App):
             elif serial:
                 by_serial[serial]=g
         rows += list(by_serial.values())
+        results=getattr(self, 'bl4_mattmab_results', {}) or {}
+        if results:
+            for row in rows:
+                serial=str(row.get('serial') or '').strip()
+                update=results.get(serial) or results.get(self._bl4_row_id(row))
+                if isinstance(update, dict):
+                    row.update(update)
         return rows
 
     def _code_display(self, e):
@@ -1543,6 +1554,14 @@ class App(V9App):
             self.bl4_selected_ids=set()
         if not hasattr(self, 'bl4_status_message'):
             self.bl4_status_message=''
+        if not hasattr(self, 'bl4_progress_message'):
+            self.bl4_progress_message=''
+        if not hasattr(self, 'bl4_mattmab_results'):
+            self.bl4_mattmab_results={}
+        if not hasattr(self, 'bl4_mattmab_thread'):
+            self.bl4_mattmab_thread=None
+        if not hasattr(self, 'bl4_mattmab_run_id'):
+            self.bl4_mattmab_run_id=0
         if not hasattr(self, 'bl4_cache_autoload_attempted'):
             self.bl4_cache_autoload_attempted=False
         if not hasattr(self, 'bl4_selection_refreshing'):
@@ -1576,8 +1595,106 @@ class App(V9App):
         local_count=len(self._get_lootlemon_entries())
         self._set_bl4_status(f'Reloaded local Lootlemon cache: {local_count} local row(s) available. Direct lootlemon.com scraping is disabled.', log_global=True)
 
+    def _bl4_mattmab_detail_from_result(self, result):
+        if not isinstance(result, dict):
+            return 'Validation failed: invalid validator result.'
+        lines=[str(result.get('message') or external_validator.format_validation_result(result))]
+        errors=[str(x) for x in (result.get('errors') or []) if str(x).strip()]
+        warnings=[str(x) for x in (result.get('warnings') or []) if str(x).strip()]
+        root_key=str(result.get('root_key') or '').strip()
+        if root_key:
+            lines.append(f'Root: {root_key}')
+        if errors:
+            lines.append('Reasons: ' + '; '.join(errors[:8]))
+            if len(errors) > 8:
+                lines.append(f'+{len(errors) - 8} more reason(s).')
+        if warnings:
+            lines.append('Warnings: ' + '; '.join(warnings[:5]))
+        return self._ascii_clean('\n'.join(lines))
+
+    def _bl4_mattmab_update_from_result(self, result):
+        status=str((result or {}).get('mattmab_validator') or '').strip().upper()
+        if status not in ('PASS','FAIL','ERROR'):
+            label=str((result or {}).get('status') or (result or {}).get('result') or '').strip().upper()
+            if label == external_validator.STATUS_LEGIT:
+                status='PASS'
+            elif label == external_validator.STATUS_MODDED:
+                status='FAIL'
+            else:
+                status='ERROR'
+        return {
+            'mattmab_validator': status,
+            'mattmab_validator_detail': self._bl4_mattmab_detail_from_result(result),
+        }
+
+    def _bl4_mattmab_apply_results(self, run_id, updates, counts, total):
+        if run_id != getattr(self, 'bl4_mattmab_run_id', 0):
+            return
+        for serial, row_id, update in updates:
+            if serial:
+                self.bl4_mattmab_results[serial]=dict(update)
+            if row_id:
+                self.bl4_mattmab_results[row_id]=dict(update)
+        self._populate_bl4_codes_v13()
+        self._set_bl4_progress('')
+        summary=(
+            f"Mattmab validation complete: {counts.get('PASS',0)} legit, "
+            f"{counts.get('FAIL',0)} modded, {counts.get('ERROR',0)} error, "
+            f"{counts.get('SKIPPED',0)} skipped, {sum(counts.values())}/{total} processed."
+        )
+        self._set_bl4_status(summary, log_global=True)
+
     def _run_bl4_mattmab_validation_local(self):
-        self._set_bl4_status('Local Mattmab validation port pending.', log_global=True)
+        self._ensure_bl4_state()
+        thread=getattr(self, 'bl4_mattmab_thread', None)
+        if thread is not None and thread.is_alive():
+            return self._set_bl4_status('Mattmab validation is already running.', log_global=True)
+        if hasattr(self, 'bl4_filtered_entries'):
+            entries=list(self.bl4_filtered_entries)
+        else:
+            entries=list(self._get_code_entries())
+        total=len(entries)
+        if total <= 0:
+            self._set_bl4_progress('')
+            return self._set_bl4_status('No visible BL4 Codes rows to validate.', log_global=True)
+
+        self.bl4_mattmab_run_id += 1
+        run_id=self.bl4_mattmab_run_id
+        self._set_bl4_progress(f'Mattmab validation running: 0/{total} rows...')
+        self._set_bl4_status(f'Running local Mattmab validation for {total} visible/filtered BL4 code row(s)...', log_global=True)
+
+        def work():
+            updates=[]
+            counts={'PASS':0, 'FAIL':0, 'ERROR':0, 'SKIPPED':0}
+            for idx, entry in enumerate(entries, 1):
+                serial=str((entry or {}).get('serial') or '').strip()
+                row_id=self._bl4_row_id(entry)
+                if not self._is_valid_bl4_serial(serial):
+                    update={
+                        'mattmab_validator': 'SKIPPED',
+                        'mattmab_validator_detail': 'Validation skipped: selected BL4 row has no valid @U serial.',
+                    }
+                    counts['SKIPPED'] += 1
+                else:
+                    try:
+                        result=external_validator.validate_serial_text(serial, idx if total != 1 else None)
+                        update=self._bl4_mattmab_update_from_result(result)
+                    except Exception as exc:
+                        update={
+                            'mattmab_validator': 'ERROR',
+                            'mattmab_validator_detail': f'Validation failed: {exc!r}',
+                        }
+                    counts[update.get('mattmab_validator') or 'ERROR'] = counts.get(update.get('mattmab_validator') or 'ERROR', 0) + 1
+                updates.append((serial, row_id, update))
+                if idx == total or idx == 1 or idx % 25 == 0:
+                    self.after(0, lambda i=idx, c=dict(counts): self._set_bl4_progress(
+                        f"Mattmab validation running: {i}/{total} rows... "
+                        f"{c.get('PASS',0)} legit, {c.get('FAIL',0)} modded, {c.get('ERROR',0)} error, {c.get('SKIPPED',0)} skipped"
+                    ))
+            self.after(0, lambda: self._bl4_mattmab_apply_results(run_id, updates, counts, total))
+
+        self.bl4_mattmab_thread=threading.Thread(target=work, daemon=True)
+        self.bl4_mattmab_thread.start()
 
     def _bl4_listing_values(self):
         vals=sorted({str(e.get('listing') or '').strip() for e in self._get_code_entries() if str(e.get('listing') or '').strip()}, key=lambda x:x.lower())
@@ -1606,6 +1723,8 @@ class App(V9App):
             return 'Mattmab Validation: Modded'
         if status == 'ERROR':
             return 'Mattmab Validation: Error'
+        if status == 'SKIPPED':
+            return 'Mattmab Validation: skipped'
         return 'Mattmab Validation: not checked'
 
     def _mattmab_validator_short_local(self, row):
@@ -1616,6 +1735,8 @@ class App(V9App):
             return '[Modded]'
         if status == 'ERROR':
             return '[Validation Error]'
+        if status == 'SKIPPED':
+            return '[Skipped]'
         return '[Unchecked]'
 
     def _gzo_meta_label_local(self, row):
