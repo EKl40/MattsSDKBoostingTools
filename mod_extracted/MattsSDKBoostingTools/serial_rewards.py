@@ -58,27 +58,27 @@ _TICK_PATCH_LOG_EVERY = 30
 # so hard-cap each serial reward package at a much smaller 20k estimated payload budget.
 _MAX_SERIAL_DELIVERY_CHARS = 20000
 _SERIAL_DELIVERY_SAFE_CHARS = 20000
-_SERIAL_DELIVERY_SAFE_SERIALS_SELECTED = 30
-_SERIAL_DELIVERY_SAFE_SERIALS_MULTI = 25
+_SERIAL_DELIVERY_SAFE_SERIALS_SELECTED = 25
+_SERIAL_DELIVERY_SAFE_SERIALS_MULTI = 20
 _SERIAL_DELIVERY_PER_SERIAL_OVERHEAD_CHARS = 16
 # Automatic chunk delivery pacing.  Keep this main-thread/tick driven; no sleeps.
 _SERIAL_DELIVERY_PRE_OPEN_DELAY_SEC = 1.00
-_SERIAL_DELIVERY_POST_OPEN_DELAY_SEC = 2.00
-_SERIAL_DELIVERY_SELECTED_POST_OPEN_DELAY_SEC = 2.00
-_SERIAL_DELIVERY_MULTI_POST_OPEN_DELAY_SEC = 2.50
+_SERIAL_DELIVERY_POST_OPEN_DELAY_SEC = 5.00
+_SERIAL_DELIVERY_SELECTED_POST_OPEN_DELAY_SEC = 5.00
+_SERIAL_DELIVERY_MULTI_POST_OPEN_DELAY_SEC = 6.00
 _SERIAL_DELIVERY_PATCH_MAX_ATTEMPTS = 120
 _SERIAL_DELIVERY_PATCH_LOG_EVERY = 30
 _SERIAL_DELIVERY_BACKPACK_HEADROOM = 100
 
 def _clamp_serial_delivery_delay(value: float) -> float:
     try:
-        return max(0.0, min(5.0, float(value)))
+        return max(0.0, min(10.0, float(value)))
     except Exception:
         return 0.0
 
 
 def set_serial_delivery_timing(pre_open_delay: float | None = None, post_open_delay: float | None = None) -> tuple[float, float]:
-    """Set automatic chunk-delivery delays. Values are clamped to 0..5 seconds."""
+    """Set automatic chunk-delivery delays. Values are clamped to 0..10 seconds."""
     global _SERIAL_DELIVERY_PRE_OPEN_DELAY_SEC, _SERIAL_DELIVERY_POST_OPEN_DELAY_SEC
     if pre_open_delay is not None:
         _SERIAL_DELIVERY_PRE_OPEN_DELAY_SEC = _clamp_serial_delivery_delay(pre_open_delay)
