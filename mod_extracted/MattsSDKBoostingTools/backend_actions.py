@@ -449,6 +449,63 @@ def _party_controller_for_index(idx: int | None) -> Any | None:
     return pc or (get_pc() if idx == 0 else None)
 
 
+def _selected_player_label(idx: int | None, name: str) -> str:
+    if name:
+        return name
+    if idx is not None:
+        return f"party index {idx}"
+    return "selected player"
+
+
+def _max_all_for_player_controller(pc: Any) -> tuple[bool, str]:
+    ps = getattr(pc, "PlayerState", None)
+    ok_bits: list[str] = []
+    fail_bits: list[str] = []
+
+    if ps is None:
+        fail_bits.append("player state")
+    else:
+        if player_economy._set_experience_level_via_bp(ps, 0, MAX_PLAYER_LEVEL):
+            ok_bits.append(f"player {MAX_PLAYER_LEVEL}")
+        else:
+            fail_bits.append("player level")
+        if player_economy._set_experience_level_via_bp(ps, 1, MAX_SPEC_LEVEL):
+            ok_bits.append(f"spec {MAX_SPEC_LEVEL}")
+        else:
+            fail_bits.append("spec level")
+
+    currency_aliases = getattr(player_economy, "_CURRENCY_KIND_ALIASES", {})
+    for kind in ("cash", "eridium"):
+        token = currency_aliases.get(kind)
+        if token and player_economy._give_currency_on_pc(pc, token, MAX_WALLET_AMOUNT):
+            ok_bits.append(f"{kind} {MAX_WALLET_AMOUNT:,}")
+        else:
+            fail_bits.append(kind)
+
+    if player_economy._set_max_sdu_points_on_pc(pc):
+        ok_bits.append("max SDU")
+    else:
+        fail_bits.append("max SDU")
+
+    try:
+        from .vault_card_boost import max_all_vault_cards_for_pc
+
+        vc_ok, vc_detail = max_all_vault_cards_for_pc(pc)
+        if vc_ok:
+            ok_bits.append(f"vault cards: {vc_detail[:120]}")
+        else:
+            fail_bits.append(f"vault cards partial: {vc_detail[:120]}")
+    except Exception as exc:
+        fail_bits.append(f"vault cards failed: {exc!r}")
+
+    detail = "; ".join(ok_bits)
+    if fail_bits:
+        if detail:
+            detail += "; "
+        detail += "failed: " + ", ".join(fail_bits)
+    return not fail_bits, detail or "no writes reported"
+
+
 def _pawn_for_party_index(idx: int | None) -> Any | None:
     pc = _party_controller_for_index(idx)
     if pc is None:
@@ -470,38 +527,27 @@ def _pawn_for_party_index(idx: int | None) -> Any | None:
 
 
 def max_all() -> dict[str, Any]:
-    name = get_selected_player_name()
-    if not name:
+    refresh_players()
+    idx = _selected_player_index
+    name = _selected_player_name
+    if idx is None and not name:
         return {"ok": False, "message": "No party player selected."}
     try:
-        player_economy._do_give_experience("player", MAX_PLAYER_LEVEL, name)
-        player_economy._do_give_experience("specialization", MAX_SPEC_LEVEL, name)
-        player_economy._do_give_currency("cash", MAX_WALLET_AMOUNT, name)
-        player_economy._do_give_currency("eridium", MAX_WALLET_AMOUNT, name)
-        player_economy._do_msbt_maxsdu(["name", name])
-        vc_msg = ""
-        pc = _selected_player_controller()
-        if pc is not None:
-            try:
-                from .vault_card_boost import max_all_vault_cards_for_pc
-
-                vc_ok, vc_detail = max_all_vault_cards_for_pc(pc)
-                vc_msg = f" Vault cards {'OK' if vc_ok else 'partial'}: {vc_detail[:120]}"
-            except Exception as exc:
-                vc_msg = f" Vault-card PC path failed; economy fallback used: {exc!r}"
-                pc = None
+        pc = _party_controller_for_index(idx)
+        label = _selected_player_label(idx, name)
         if pc is None:
-            for vc_kind in ("vaultcard1", "vaultcard2", "vaultcard3"):
-                player_economy._do_give_currency(vc_kind, MAX_WALLET_AMOUNT, name)
-            for vc_xp in ("vaultcard_xp_1", "vaultcard_xp_2", "vaultcard_xp_3"):
-                player_economy._do_give_experience(vc_xp, MAX_VAULT_CARD_LEVEL, name)
-            if not vc_msg:
-                vc_msg = " Vault cards requested through economy fallback."
+            return {
+                "ok": False,
+                "message": (
+                    f"Max All could not resolve a live player controller for {label}. "
+                    "Refresh Players and try again."
+                ),
+            }
+        ok, detail = _max_all_for_player_controller(pc)
         return {
-            "ok": True,
+            "ok": ok,
             "message": (
-                f"Max All requested for {name}: player {MAX_PLAYER_LEVEL}, spec {MAX_SPEC_LEVEL}, "
-                f"cash/eridium {MAX_WALLET_AMOUNT:,}, max SDU.{vc_msg}"
+                f"Max All {'completed' if ok else 'partially completed'} for {label}: {detail}."
             ),
         }
     except Exception as exc:
