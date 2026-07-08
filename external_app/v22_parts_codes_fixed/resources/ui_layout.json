@@ -930,27 +930,26 @@
           "id": "dev_spawner_actor",
           "label": "ACTOR TEMPLATE SPAWNING",
           "accent": "cyan",
-          "text": "Spawn or inspect live actor templates with ASD_spawn and ASD_targets.",
+          "text": "Spawn or inspect live actor templates with ASD_spawn and ASD_targets. Recommended first tests: ASD Status, Cache Status, Targets: lostloot, Targets: bank, then Targets: barrel. A 0-result target scan usually means that actor is not loaded nearby yet.",
           "fields": [
             {
               "id": "dev_actor_name",
               "label": "Actor / Template",
               "type": "choice",
-              "default": "goldenchest",
+              "default": "Lost Loot | lostloot",
               "choices": [
-                "goldenchest",
-                "golden",
-                "golden_chest",
-                "lostloot",
-                "lostlootmachine",
-                "lost_loot",
-                "firmware",
-                "bank",
-                "playerbank",
-                "player_bank",
-                "barrel",
-                "barrels",
-                "OakWeapon_2147480142"
+                "Lost Loot | lostloot",
+                "Lost Loot Machine | lostlootmachine",
+                "Lost Loot Alt | lost_loot",
+                "Golden Chest | golden",
+                "Golden Chest Exact | goldenchest",
+                "Golden Chest Alt | golden_chest",
+                "Firmware | firmware",
+                "Bank | bank",
+                "Player Bank | playerbank",
+                "Player Bank Alt | player_bank",
+                "Barrel | barrel",
+                "Barrels | barrels"
               ]
             },
             {
@@ -960,18 +959,18 @@
               "default": "",
               "choices": [
                 "",
-                "OakLostLootMachine",
-                "OakInteractiveObject",
-                "OakInteractableObject",
-                "OakUsableActor",
-                "OakUseableActor",
-                "OakMissionScriptedActor",
-                "OakLootable",
-                "OakLootableContainer",
-                "OakChest",
-                "OakActor",
-                "Actor",
-                "OakCharacter"
+                "Lost Loot Machine | OakLostLootMachine",
+                "Interactive Object | OakInteractiveObject",
+                "Interactable Object | OakInteractableObject",
+                "Usable Actor | OakUsableActor",
+                "Useable Actor Alt | OakUseableActor",
+                "Mission Scripted Actor | OakMissionScriptedActor",
+                "Lootable | OakLootable",
+                "Lootable Container | OakLootableContainer",
+                "Chest | OakChest",
+                "Oak Actor | OakActor",
+                "Actor | Actor",
+                "Character | OakCharacter"
               ]
             },
             {
@@ -1060,13 +1059,13 @@
               "id": "dev_ai_name",
               "label": "Actor Def / Cache",
               "type": "choice",
-              "default": "Char_TargetDummy",
+              "default": "Target Dummy | Char_TargetDummy",
               "choices": [
-                "Char_TargetDummy",
-                "Char_CrazyEarl_Boss",
-                "Char_NPC_Hermes",
-                "Char_Robo_Totem_Base",
-                "mancubus"
+                "Target Dummy | Char_TargetDummy",
+                "Crazy Earl Boss | Char_CrazyEarl_Boss",
+                "Hermes NPC | Char_NPC_Hermes",
+                "Robo Totem Base | Char_Robo_Totem_Base",
+                "Mancubus Cache Key | mancubus"
               ]
             },
             {
@@ -1076,11 +1075,11 @@
               "default": "",
               "choices": [
                 "",
-                "OakCharacter",
-                "OakAICharacter",
-                "OakNPC",
-                "OakPawn",
-                "Actor"
+                "Oak Character | OakCharacter",
+                "Oak AI Character | OakAICharacter",
+                "Oak NPC | OakNPC",
+                "Oak Pawn | OakPawn",
+                "Actor | Actor"
               ]
             },
             {
@@ -1090,7 +1089,7 @@
               "default": "",
               "choices": [
                 "",
-                "/Game/AI/NPC/_Unique/Hermes/Script_NPC_Hermes"
+                "Hermes NPC Script | /Game/AI/NPC/_Unique/Hermes/Script_NPC_Hermes"
               ]
             },
             {
@@ -1181,15 +1180,20 @@
               "id": "dev_logo_actor",
               "label": "Logo Actor",
               "type": "choice",
-              "default": "barrel",
+              "default": "Barrel | barrel",
               "choices": [
-                "barrel",
-                "barrels",
-                "goldenchest",
-                "firmware",
-                "bank",
-                "playerbank",
-                "lostloot"
+                "Barrel | barrel",
+                "Barrels | barrels",
+                "Golden Chest | golden",
+                "Golden Chest Exact | goldenchest",
+                "Golden Chest Alt | golden_chest",
+                "Firmware | firmware",
+                "Bank | bank",
+                "Player Bank | playerbank",
+                "Player Bank Alt | player_bank",
+                "Lost Loot | lostloot",
+                "Lost Loot Machine | lostlootmachine",
+                "Lost Loot Alt | lost_loot"
               ]
             },
             {

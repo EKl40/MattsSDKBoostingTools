@@ -22,6 +22,7 @@ LOCAL_RESOURCE_FILES = {
     "gzo_parts_map": "gzo_parts_map.json",
     "legit_rules": "legit_rules_flat.json",
 }
+SETTINGS_FILE = RESOURCE_DIR / "user_external_app_settings.json"
 def load_local_json(filename):
     with open(RESOURCE_DIR / filename, "r", encoding="utf-8") as f: return json.load(f)
 ACCENT_COLORS={"cyan":"#00d4ff","gold":"#ffcc33","green":"#43d17a","purple":"#b36bff","pink":"#ff5db7","red":"#ff5b5b"}
@@ -51,21 +52,77 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__(); self.title("Matt's SDK Boosting Tools - External V18 Clean Current")
         self.geometry('1920x980'); self.minsize(1400,820); self.configure(bg='#090d17')
+        self.app_settings=self._load_app_settings()
+        self.app_opacity_var=tk.IntVar(value=self._initial_opacity_percent())
         self.field_vars={}; self.widgets={}; self.resources={}; self.legit_roots=[]; self.player_options=[]; self.current_layout=None
         self.status_var=tk.StringVar(value='Not connected'); self.log_var=tk.StringVar(value="V20 GZO import build: local Matt resources + bridge for live actions.")
         self.output_text=None; self._style(); self._header(); self.notebook=ttk.Notebook(self); self.notebook.pack(fill='both',expand=True,padx=6,pady=(0,6))
+        self._set_app_opacity(self.app_opacity_var.get(), save=False)
         self.after(200,self.load_layout); self.after(1600,self.poll_status)
+    def _load_app_settings(self):
+        try:
+            if SETTINGS_FILE.exists():
+                data=json.loads(SETTINGS_FILE.read_text(encoding='utf-8') or '{}')
+                return data if isinstance(data,dict) else {}
+        except Exception:
+            pass
+        return {}
+    def _save_app_settings(self):
+        try:
+            SETTINGS_FILE.parent.mkdir(parents=True,exist_ok=True)
+            SETTINGS_FILE.write_text(json.dumps(self.app_settings,indent=2,sort_keys=True),encoding='utf-8')
+        except Exception:
+            pass
+    def _initial_opacity_percent(self):
+        try:
+            raw=int(float(self.app_settings.get('app_opacity_percent',100)))
+        except Exception:
+            raw=100
+        return max(50,min(100,raw))
+    def _set_app_opacity(self,value,save=True):
+        try:
+            percent=max(50,min(100,int(float(value))))
+        except Exception:
+            percent=100
+        if hasattr(self,'app_opacity_var') and self.app_opacity_var.get()!=percent:
+            self.app_opacity_var.set(percent)
+        try:
+            self.attributes('-alpha',percent/100.0)
+        except Exception:
+            return
+        if save:
+            self.app_settings['app_opacity_percent']=percent
+            self._save_app_settings()
+    def _on_opacity_changed(self,value):
+        self._set_app_opacity(value,save=True)
     def _style(self):
         st=ttk.Style(self)
         try: st.theme_use('clam')
         except Exception: pass
+        dropdown_options={
+            '*TCombobox*Listbox.background':'#111827',
+            '*TCombobox*Listbox.foreground':'#f8fafc',
+            '*TCombobox*Listbox.selectBackground':'#1f6f8b',
+            '*TCombobox*Listbox.selectForeground':'#ffffff',
+            '*TCombobox*Listbox.font':'Segoe UI 9',
+        }
+        for opt,value in dropdown_options.items():
+            try: self.option_add(opt,value)
+            except Exception: pass
         st.configure('TNotebook',background='#090d17',borderwidth=0)
         st.configure('TFrame',background='#090d17')
         st.configure('TLabel',background='#090d17',foreground='#cfd8f3',font=('Segoe UI',8))
         st.configure('TNotebook.Tab',padding=(12,5),background='#0b4e61',foreground='#f1f5ff',font=('Segoe UI',8))
         st.map('TNotebook.Tab',background=[('selected','#7a1d6b')],foreground=[('selected','#ffffff')])
-        st.configure('TCombobox',fieldbackground='#211b1f',background='#211b1f',foreground='#f1f5ff',arrowcolor='#d7def5',padding=2)
-        st.configure('TEntry',fieldbackground='#211b1f',foreground='#f1f5ff',padding=2)
+        st.configure('TCombobox',fieldbackground='#151923',background='#172033',foreground='#f8fafc',arrowcolor='#f8fafc',selectbackground='#1f6f8b',selectforeground='#ffffff',padding=2)
+        st.map('TCombobox',
+            fieldbackground=[('readonly','#151923'),('disabled','#252a35'),('!disabled','#151923')],
+            foreground=[('readonly','#f8fafc'),('disabled','#8c99b5'),('!disabled','#f8fafc')],
+            background=[('readonly','#172033'),('active','#22304c'),('disabled','#151923'),('!disabled','#172033')],
+            selectbackground=[('readonly','#1f6f8b'),('!disabled','#1f6f8b')],
+            selectforeground=[('readonly','#ffffff'),('!disabled','#ffffff')],
+            arrowcolor=[('disabled','#8c99b5'),('!disabled','#f8fafc')])
+        st.configure('TEntry',fieldbackground='#211b1f',foreground='#f1f5ff',insertcolor='#f1f5ff',padding=2)
     def _header(self):
         top=tk.Frame(self,bg='#090d17'); top.pack(fill='x',padx=6,pady=(6,2))
         left=tk.Frame(top,bg='#090d17'); left.pack(side='left',fill='x',expand=True)
@@ -77,6 +134,9 @@ class App(tk.Tk):
             tk.Button(link_row,text=label,command=lambda u=url:self._open_support_link(u),bg='#172033',fg='#ffd447',relief='flat',padx=8,pady=3,font=('Segoe UI',8,'bold')).pack(side='left',padx=(0,6))
         tk.Button(top,text='Reconnect',command=self.load_layout,bg='#172033',fg='#f1f5ff',relief='flat',padx=14,pady=6).pack(side='right',padx=(6,0))
         tk.Button(top,text='Status',command=self.poll_status,bg='#172033',fg='#f1f5ff',relief='flat',padx=14,pady=6).pack(side='right')
+        opacity=tk.Frame(top,bg='#090d17'); opacity.pack(side='right',padx=(10,4))
+        tk.Label(opacity,text='App Opacity',fg='#9fb3d9',bg='#090d17',font=('Segoe UI',8)).pack(anchor='e')
+        tk.Scale(opacity,from_=50,to=100,orient='horizontal',variable=self.app_opacity_var,command=self._on_opacity_changed,length=125,showvalue=True,bg='#090d17',fg='#cfd8f3',troughcolor='#211b1f',highlightthickness=0,relief='flat').pack(anchor='e')
         tk.Label(self,textvariable=self.status_var,fg='#9fb3d9',bg='#090d17',anchor='w',font=('Segoe UI',8)).pack(fill='x',padx=6,pady=(2,0))
         tk.Label(self,textvariable=self.log_var,fg='#21e05f',bg='#090d17',anchor='w',justify='left',wraplength=1800,font=('Segoe UI',8)).pack(fill='x',padx=6,pady=(0,3))
         sep=tk.Frame(self,bg='#333a48',height=1); sep.pack(fill='x',padx=6,pady=(0,3))

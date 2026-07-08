@@ -3436,6 +3436,20 @@ class App(V9App):
             self.log('Experimental Dev Spawner Tools enabled for this app session.')
         return ok
 
+    def _dev_spawner_choice_value(self, fid, value):
+        text = str(value or '').strip()
+        label_fields = {
+            'dev_actor_name',
+            'dev_actor_class',
+            'dev_ai_name',
+            'dev_ai_class',
+            'dev_ai_load',
+            'dev_logo_actor',
+        }
+        if fid in label_fields and '|' in text:
+            return text.rsplit('|', 1)[1].strip()
+        return text
+
     def _dev_spawner_payload(self):
         fields = (
             'dev_actor_name',
@@ -3470,8 +3484,32 @@ class App(V9App):
         for fid in fields:
             var = self.field_vars.get(fid)
             if var is not None:
-                payload[fid] = var.get()
+                payload[fid] = self._dev_spawner_choice_value(fid, var.get())
         return payload
+
+    def _dev_spawner_empty_target_hint(self):
+        return (
+            'No matching actors found in the currently loaded area. Try another preset, '
+            'move near the object, enable Include Non-Generated, or run Cache/Targets again '
+            'after the area fully loads.'
+        )
+
+    def _dev_spawner_result_message(self, aid, res, payload):
+        msg = res.get('message') or json.dumps(res)
+        command = res.get('command')
+        lines = [msg]
+        if command:
+            lines.append(f'Command sent: {command}')
+        lower = msg.lower()
+        empty_seen = bool(re.search(r'(^|\D)0\s*/\s*0(\D|$)', msg)) or '0 matches' in lower or 'no matching actors' in lower
+        if aid == 'dev_spawner_targets':
+            target = payload.get('dev_actor_name') or 'selected preset'
+            lines.append(f'Target scan requested for {target}. Check unrealsdk.log for the full ASD target count.')
+            if empty_seen:
+                lines.append(self._dev_spawner_empty_target_hint())
+            else:
+                lines.append('If ASD reports 0 results, try lostloot, bank, or barrel first; those are the safest starter scans.')
+        return '\n'.join(lines)
 
     def _run_dev_spawner_action(self, aid):
         if not self._confirm_dev_spawner_tools():
@@ -3483,10 +3521,7 @@ class App(V9App):
         def work():
             try:
                 res = http_json('POST', '/action', {'action': aid, 'payload': payload, 'timeout': 10.0}, timeout=18.0)
-                msg = res.get('message') or json.dumps(res)
-                command = res.get('command')
-                if command:
-                    msg = f'{msg}\n{command}'
+                msg = self._dev_spawner_result_message(aid, res, payload)
                 self.after(0, lambda: self.log(msg))
                 self.after(0, self.poll_status)
             except Exception as exc:
