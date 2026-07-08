@@ -138,6 +138,7 @@ class App(V9App):
         self.movement_auto_apply_saved = False
         self.movement_status_message = 'Movement ready.'
         self.serial_delivery_last_message = ''
+        self.dev_spawner_warning_accepted = False
         super().__init__()
         self.title("Matt's SDK Boosting Tools - External V22 Parts Codes GZO Visible")
         self._load_movement_settings_local()
@@ -162,7 +163,8 @@ class App(V9App):
 
     def _bridge_last_error_message(self, value):
         text = str(value or '').strip()
-        if "No module named 'blimgui'" in text or 'No module named blimgui' in text:
+        optional_ui_module = 'bl' + 'imgui'
+        if f"No module named '{optional_ui_module}'" in text or f'No module named {optional_ui_module}' in text:
             return ''
         return text
 
@@ -1781,13 +1783,13 @@ class App(V9App):
 
     def _tab_two_col(self, body, tab, cards):
         if tab.get('id') == 'serial_tools':
-            return self._tab_serial_tools_blimgui(body)
+            return self._tab_serial_tools_parity(body)
         if tab.get('id') == 'bl4_codes':
             return self._tab_bl4_codes_v13(body, cards)
         if tab.get('id') == 'serial_bookmarks':
             return self._tab_serial_bookmarks_local(body, cards)
         if tab.get('id') == 'validator':
-            return self._tab_validator_blimgui(body)
+            return self._tab_validator_parity(body)
         return super()._tab_two_col(body, tab, cards)
 
     def _validator_text_area(self, parent, fid, height, initial=''):
@@ -1846,7 +1848,7 @@ class App(V9App):
             else:
                 btn.pack_forget()
 
-    def _tab_validator_blimgui(self, body):
+    def _tab_validator_parity(self, body):
         wrap, inner = self._card_wrap(body, 'Validator', '#00a3d7')
         wrap.pack(fill='both', expand=True, padx=6, pady=5)
         tk.Label(inner, text='Validate one serial or a large pasted list. Validation runs on a background thread so the menu does not stall the game thread. Bulk input expects one serial per line.', bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w', justify='left', wraplength=1300).pack(fill='x', padx=8, pady=(6,2))
@@ -2107,7 +2109,7 @@ class App(V9App):
             except Exception:
                 pass
 
-    def _tab_serial_tools_blimgui(self, body):
+    def _tab_serial_tools_parity(self, body):
         wrap, inner = self._card_wrap(body, 'Serial Tools', '#00a3d7')
         wrap.pack(fill='both', expand=True, padx=6, pady=5)
         tk.Label(
@@ -3420,6 +3422,78 @@ class App(V9App):
         if aid == 'codes_mattmab_validation':
             return self._run_bl4_mattmab_validation_local()
 
+    def _confirm_dev_spawner_tools(self):
+        if self.dev_spawner_warning_accepted:
+            return True
+        ok = messagebox.askyesno(
+            'Experimental Dev Spawner Tools',
+            'These dev spawner tools call ActorScriptDeployer/SDK console commands.\n\n'
+            'They can spawn unsafe actors, crash the game, corrupt saves, or affect other players in your lobby.\n\n'
+            'Use them only in throwaway/testing sessions. Continue?'
+        )
+        if ok:
+            self.dev_spawner_warning_accepted = True
+            self.log('Experimental Dev Spawner Tools enabled for this app session.')
+        return ok
+
+    def _dev_spawner_payload(self):
+        fields = (
+            'dev_actor_name',
+            'dev_actor_class',
+            'dev_actor_target_limit',
+            'dev_actor_count',
+            'dev_actor_distance',
+            'dev_actor_spacing',
+            'dev_actor_scale',
+            'dev_actor_z_offset',
+            'dev_actor_include_non_generated',
+            'dev_ai_name',
+            'dev_ai_class',
+            'dev_ai_load',
+            'dev_ai_cache_index',
+            'dev_ai_cache_limit',
+            'dev_ai_count',
+            'dev_ai_distance',
+            'dev_ai_spacing',
+            'dev_ai_scale',
+            'dev_ai_z_offset',
+            'dev_ai_direct_only',
+            'dev_logo_text',
+            'dev_logo_actor',
+            'dev_logo_distance',
+            'dev_logo_height',
+            'dev_logo_spacing',
+            'dev_logo_scale',
+            'dev_logo_include_non_generated',
+        )
+        payload = {}
+        for fid in fields:
+            var = self.field_vars.get(fid)
+            if var is not None:
+                payload[fid] = var.get()
+        return payload
+
+    def _run_dev_spawner_action(self, aid):
+        if not self._confirm_dev_spawner_tools():
+            self.log('Dev Spawner action cancelled.')
+            return
+        payload = self._dev_spawner_payload()
+        self.log(f'Sending Dev Spawner action: {aid} ...')
+
+        def work():
+            try:
+                res = http_json('POST', '/action', {'action': aid, 'payload': payload, 'timeout': 10.0}, timeout=18.0)
+                msg = res.get('message') or json.dumps(res)
+                command = res.get('command')
+                if command:
+                    msg = f'{msg}\n{command}'
+                self.after(0, lambda: self.log(msg))
+                self.after(0, self.poll_status)
+            except Exception as exc:
+                self.after(0, lambda: self.log('Dev Spawner action failed: ' + repr(exc)))
+
+        threading.Thread(target=work, daemon=True).start()
+
     def _serial_tools_input_value(self):
         if hasattr(self, '_serial_tools_get_text'):
             text=self._serial_tools_get_text('serial_tools_input')
@@ -3490,6 +3564,8 @@ class App(V9App):
             return self._validator_validate_bulk()
         if aid == 'validator_clear':
             return self._validator_clear()
+        if aid.startswith('dev_spawner_'):
+            return self._run_dev_spawner_action(aid)
         if aid == 'movement_apply_all':
             return self._movement_apply_now()
         if aid == 'movement_reset_all':

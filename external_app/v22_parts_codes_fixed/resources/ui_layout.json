@@ -917,6 +917,323 @@
       ]
     },
     {
+      "id": "dev_spawner",
+      "label": "Dev Spawner",
+      "cards": [
+        {
+          "id": "dev_spawner_info",
+          "label": "EXPERIMENTAL DEV SPAWNER",
+          "accent": "red",
+          "text": "Experimental live-game dev tools. Requires ActorScriptDeployer installed and enabled. These actions can crash the game, corrupt saves, or affect other players in your lobby; the app will ask for confirmation before sending commands."
+        },
+        {
+          "id": "dev_spawner_actor",
+          "label": "ACTOR TEMPLATE SPAWNING",
+          "accent": "cyan",
+          "text": "Spawn or inspect live actor templates with ASD_spawn and ASD_targets.",
+          "fields": [
+            {
+              "id": "dev_actor_name",
+              "label": "Actor / Template",
+              "type": "choice",
+              "default": "goldenchest",
+              "choices": [
+                "goldenchest",
+                "golden",
+                "golden_chest",
+                "lostloot",
+                "lostlootmachine",
+                "lost_loot",
+                "firmware",
+                "bank",
+                "playerbank",
+                "player_bank",
+                "barrel",
+                "barrels",
+                "OakWeapon_2147480142"
+              ]
+            },
+            {
+              "id": "dev_actor_class",
+              "label": "Class Override",
+              "type": "choice",
+              "default": "",
+              "choices": [
+                "",
+                "OakLostLootMachine",
+                "OakInteractiveObject",
+                "OakInteractableObject",
+                "OakUsableActor",
+                "OakUseableActor",
+                "OakMissionScriptedActor",
+                "OakLootable",
+                "OakLootableContainer",
+                "OakChest",
+                "OakActor",
+                "Actor",
+                "OakCharacter"
+              ]
+            },
+            {
+              "id": "dev_actor_target_limit",
+              "label": "Target List Limit",
+              "type": "int",
+              "default": 20
+            },
+            {
+              "id": "dev_actor_count",
+              "label": "Count",
+              "type": "int",
+              "default": 1
+            },
+            {
+              "id": "dev_actor_distance",
+              "label": "Distance",
+              "type": "int",
+              "default": 350
+            },
+            {
+              "id": "dev_actor_spacing",
+              "label": "Spacing",
+              "type": "int",
+              "default": 125
+            },
+            {
+              "id": "dev_actor_scale",
+              "label": "Scale",
+              "type": "text",
+              "default": "1.0"
+            },
+            {
+              "id": "dev_actor_z_offset",
+              "label": "Z Offset",
+              "type": "int",
+              "default": -100
+            },
+            {
+              "id": "dev_actor_include_non_generated",
+              "label": "Include Non-Generated",
+              "type": "checkbox",
+              "default": "false"
+            }
+          ],
+          "actions": [
+            {
+              "id": "dev_spawner_targets",
+              "label": "List Targets",
+              "accent": "cyan"
+            },
+            {
+              "id": "dev_spawner_spawn",
+              "label": "Spawn Template",
+              "accent": "gold"
+            },
+            {
+              "id": "dev_spawner_activate_last",
+              "label": "Activate Last",
+              "accent": "purple"
+            },
+            {
+              "id": "dev_spawner_scriptdump",
+              "label": "Script Dump Last",
+              "accent": "purple"
+            },
+            {
+              "id": "dev_spawner_status",
+              "label": "ASD Status",
+              "accent": "cyan"
+            },
+            {
+              "id": "dev_spawner_clear",
+              "label": "Clear ASD Spawns",
+              "accent": "red"
+            }
+          ]
+        },
+        {
+          "id": "dev_spawner_ai",
+          "label": "AI ACTOR DEF SPAWNING",
+          "accent": "purple",
+          "text": "Probe/cache/spawn actor-def names with ASD_probeai, ASD_cache, and ASD_spawnai.",
+          "fields": [
+            {
+              "id": "dev_ai_name",
+              "label": "Actor Def / Cache",
+              "type": "choice",
+              "default": "Char_TargetDummy",
+              "choices": [
+                "Char_TargetDummy",
+                "Char_CrazyEarl_Boss",
+                "Char_NPC_Hermes",
+                "Char_Robo_Totem_Base",
+                "mancubus"
+              ]
+            },
+            {
+              "id": "dev_ai_class",
+              "label": "Cache Source Class",
+              "type": "choice",
+              "default": "",
+              "choices": [
+                "",
+                "OakCharacter",
+                "OakAICharacter",
+                "OakNPC",
+                "OakPawn",
+                "Actor"
+              ]
+            },
+            {
+              "id": "dev_ai_load",
+              "label": "Extra Load Path",
+              "type": "choice",
+              "default": "",
+              "choices": [
+                "",
+                "/Game/AI/NPC/_Unique/Hermes/Script_NPC_Hermes"
+              ]
+            },
+            {
+              "id": "dev_ai_cache_index",
+              "label": "Cache Pick Index",
+              "type": "int",
+              "default": 0
+            },
+            {
+              "id": "dev_ai_cache_limit",
+              "label": "Cache List Limit",
+              "type": "int",
+              "default": 10
+            },
+            {
+              "id": "dev_ai_count",
+              "label": "Count",
+              "type": "int",
+              "default": 1
+            },
+            {
+              "id": "dev_ai_distance",
+              "label": "Distance",
+              "type": "int",
+              "default": 350
+            },
+            {
+              "id": "dev_ai_spacing",
+              "label": "Spacing",
+              "type": "int",
+              "default": 125
+            },
+            {
+              "id": "dev_ai_scale",
+              "label": "Scale",
+              "type": "text",
+              "default": "1.0"
+            },
+            {
+              "id": "dev_ai_z_offset",
+              "label": "Z Offset",
+              "type": "int",
+              "default": 0
+            },
+            {
+              "id": "dev_ai_direct_only",
+              "label": "Direct Only",
+              "type": "checkbox",
+              "default": "false"
+            }
+          ],
+          "actions": [
+            {
+              "id": "dev_spawner_probeai",
+              "label": "Probe AI",
+              "accent": "cyan"
+            },
+            {
+              "id": "dev_spawner_cache",
+              "label": "Cache Live Actor",
+              "accent": "purple"
+            },
+            {
+              "id": "dev_spawner_cache_status",
+              "label": "Cache Status",
+              "accent": "cyan"
+            },
+            {
+              "id": "dev_spawner_spawnai",
+              "label": "Spawn AI Actor Def",
+              "accent": "gold"
+            }
+          ]
+        },
+        {
+          "id": "dev_spawner_logo",
+          "label": "BARREL LOGO",
+          "accent": "gold",
+          "text": "Spawn pipe-separated text rows through ASD_barrellogo. Use | for line breaks.",
+          "fields": [
+            {
+              "id": "dev_logo_text",
+              "label": "Logo Text",
+              "type": "multiline",
+              "default": ""
+            },
+            {
+              "id": "dev_logo_actor",
+              "label": "Logo Actor",
+              "type": "choice",
+              "default": "barrel",
+              "choices": [
+                "barrel",
+                "barrels",
+                "goldenchest",
+                "firmware",
+                "bank",
+                "playerbank",
+                "lostloot"
+              ]
+            },
+            {
+              "id": "dev_logo_distance",
+              "label": "Distance",
+              "type": "int",
+              "default": 2500
+            },
+            {
+              "id": "dev_logo_height",
+              "label": "Height",
+              "type": "int",
+              "default": 750
+            },
+            {
+              "id": "dev_logo_spacing",
+              "label": "Spacing",
+              "type": "int",
+              "default": 70
+            },
+            {
+              "id": "dev_logo_scale",
+              "label": "Scale",
+              "type": "text",
+              "default": "0.45"
+            },
+            {
+              "id": "dev_logo_include_non_generated",
+              "label": "Include Non-Generated",
+              "type": "checkbox",
+              "default": "false"
+            }
+          ],
+          "actions": [
+            {
+              "id": "dev_spawner_barrel_logo",
+              "label": "Run Barrel Logo",
+              "accent": "gold"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "map_travel",
       "label": "Map Travel",
       "cards": [

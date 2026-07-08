@@ -1,10 +1,11 @@
 """Bridge-safe backend actions for Matt's SDK Boosting Tools.
 
-This module must not import BLImGui or blimgui_panel. It owns the small bit of
-external-bridge state needed before the optional in-game panel is available.
+This module must not import the optional in-game UI. It owns the small bit of
+external-bridge state needed by headless bridge actions.
 """
 from __future__ import annotations
 
+import importlib
 import re
 from typing import Any
 
@@ -75,10 +76,72 @@ serial_tools_status: str = "Paste a @U serial or deserialized serial text above.
 _movement_no_target_enabled = False
 _movement_noclip_enabled = False
 _rarity_weights: dict[str, float] = {key: 1.0 for key, _label, _fields in RARITY_ROWS}
+_DEV_SPAWNER_SAFE_TOKEN = re.compile(r"^[A-Za-z0-9_./:-]+$")
+_ASD_COMMAND_ATTRS = {
+    "ASD_status": "_cmd_status",
+    "ASD_clear": "_cmd_clear",
+    "ASD_activate_last": "_cmd_activate_last",
+    "ASD_scriptdump": "_cmd_scriptdump",
+    "ASD_cache_status": "_cmd_cache_status",
+    "ASD_targets": "_cmd_targets",
+    "ASD_spawn": "_cmd_spawn",
+    "ASD_spawnai": "_cmd_spawnai",
+    "ASD_probeai": "_cmd_probeai",
+    "ASD_cache": "_cmd_cache",
+    "ASD_barrellogo": "_cmd_barrellogo",
+}
 
 
 def _clamp_int(value: object, min_value: int, max_value: int) -> int:
     return max(int(min_value), min(int(value), int(max_value)))
+
+
+def _clamp_float(value: object, min_value: float, max_value: float, default: float) -> float:
+    try:
+        fvalue = float(str(value).replace(",", "").strip())
+    except Exception:
+        fvalue = default
+    return max(min_value, min(max_value, fvalue))
+
+
+def _dev_spawner_bool(value: object) -> bool:
+    return str(value or "").strip().lower() in ("1", "true", "yes", "on", "checked")
+
+
+def _dev_spawner_token(value: object, field_name: str, *, required: bool = False) -> str:
+    text = str(value or "").strip()
+    if not text:
+        if required:
+            raise ValueError(f"{field_name} is required.")
+        return ""
+    if not _DEV_SPAWNER_SAFE_TOKEN.match(text):
+        raise ValueError(f"{field_name} contains unsupported characters for a dev-spawner console argument.")
+    return text
+
+
+def _dev_spawner_quoted_text(value: object) -> str:
+    text = str(value or "").replace("\r\n", "|").replace("\r", "|").replace("\n", "|").strip()
+    # Keep this as a single ASD argument. Semicolons are removed to avoid accidental console chaining.
+    text = text.replace(";", ",").replace('"', "'")
+    return f'"{text}"'
+
+
+def _run_actor_script_deployer_command(command_line: str) -> tuple[bool, str]:
+    """Run an ActorScriptDeployer mods_base command without going through Unreal console text."""
+    command_name = str(command_line or "").split(None, 1)[0]
+    attr_name = _ASD_COMMAND_ATTRS.get(command_name)
+    if not attr_name:
+        return False, f"No ActorScriptDeployer mapping for {command_name!r}."
+    try:
+        asd = importlib.import_module("ActorScriptDeployer")
+    except Exception as exc:
+        return False, f"ActorScriptDeployer import failed: {exc!r}"
+    command_obj = getattr(asd, attr_name, None)
+    handle = getattr(command_obj, "_handle_cmd", None)
+    if not callable(handle):
+        return False, f"ActorScriptDeployer command object {attr_name!r} is unavailable."
+    handle(command_line, len(command_name))
+    return True, "ActorScriptDeployer command object"
 
 
 def _max_level_for_track(track: object) -> int:
@@ -590,6 +653,148 @@ def spawn_itempool(pool_name: object, count: object, level: object) -> dict[str,
         return {"ok": True, "message": f"Spawned item pool {name} x{spawned} at level {int(level)}."}
     except Exception as exc:
         return {"ok": False, "message": f"Spawn item pool failed: {exc!r}"}
+
+
+def run_dev_spawner_action(action: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    payload = dict(payload or {})
+    try:
+        if action == "dev_spawner_status":
+            cmd = "ASD_status"
+        elif action == "dev_spawner_clear":
+            cmd = "ASD_clear"
+        elif action == "dev_spawner_activate_last":
+            cmd = "ASD_activate_last"
+        elif action == "dev_spawner_scriptdump":
+            cmd = "ASD_scriptdump"
+        elif action == "dev_spawner_cache_status":
+            cmd = "ASD_cache_status"
+        elif action == "dev_spawner_targets":
+            name = _dev_spawner_token(payload.get("dev_actor_name"), "Actor/template name", required=True)
+            class_name = _dev_spawner_token(payload.get("dev_actor_class"), "Actor class")
+            limit = _clamp_int(payload.get("dev_actor_target_limit") or 20, 1, 200)
+            parts = ["ASD_targets", name, "--limit", str(limit)]
+            if class_name:
+                parts.extend(("--class", class_name))
+            if _dev_spawner_bool(payload.get("dev_actor_include_non_generated")):
+                parts.append("--include-non-generated")
+            cmd = " ".join(parts)
+        elif action == "dev_spawner_spawn":
+            name = _dev_spawner_token(payload.get("dev_actor_name"), "Actor/template name", required=True)
+            class_name = _dev_spawner_token(payload.get("dev_actor_class"), "Actor class")
+            count = _clamp_int(payload.get("dev_actor_count") or 1, 1, 50)
+            distance = _clamp_float(payload.get("dev_actor_distance"), 0.0, 20000.0, 350.0)
+            spacing = _clamp_float(payload.get("dev_actor_spacing"), 0.0, 5000.0, 125.0)
+            scale = _clamp_float(payload.get("dev_actor_scale"), 0.01, 20.0, 1.0)
+            z_offset = _clamp_float(payload.get("dev_actor_z_offset"), -10000.0, 10000.0, -100.0)
+            parts = [
+                "ASD_spawn",
+                name,
+                "--count",
+                str(count),
+                "--distance",
+                f"{distance:g}",
+                "--spacing",
+                f"{spacing:g}",
+                "--scale",
+                f"{scale:g}",
+                "--z-offset",
+                f"{z_offset:g}",
+            ]
+            if class_name:
+                parts.extend(("--class", class_name))
+            if _dev_spawner_bool(payload.get("dev_actor_include_non_generated")):
+                parts.append("--include-non-generated")
+            cmd = " ".join(parts)
+        elif action in ("dev_spawner_spawnai", "dev_spawner_probeai"):
+            name = _dev_spawner_token(payload.get("dev_ai_name"), "AI actor-def name", required=True)
+            command = "ASD_spawnai" if action == "dev_spawner_spawnai" else "ASD_probeai"
+            parts = [command, name]
+            if action == "dev_spawner_spawnai":
+                count = _clamp_int(payload.get("dev_ai_count") or 1, 1, 50)
+                distance = _clamp_float(payload.get("dev_ai_distance"), 0.0, 20000.0, 350.0)
+                spacing = _clamp_float(payload.get("dev_ai_spacing"), 0.0, 5000.0, 125.0)
+                scale = _clamp_float(payload.get("dev_ai_scale"), 0.01, 20.0, 1.0)
+                z_offset = _clamp_float(payload.get("dev_ai_z_offset"), -10000.0, 10000.0, 0.0)
+                parts.extend(
+                    (
+                        "--count",
+                        str(count),
+                        "--distance",
+                        f"{distance:g}",
+                        "--spacing",
+                        f"{spacing:g}",
+                        "--scale",
+                        f"{scale:g}",
+                        "--zoffset",
+                        f"{z_offset:g}",
+                    )
+                )
+                if _dev_spawner_bool(payload.get("dev_ai_direct_only")):
+                    parts.append("--direct-only")
+            load_path = _dev_spawner_token(payload.get("dev_ai_load"), "AI load path")
+            if load_path:
+                parts.extend(("--load", load_path))
+            cmd = " ".join(parts)
+        elif action == "dev_spawner_cache":
+            name = _dev_spawner_token(payload.get("dev_ai_name"), "AI actor-def/cache name", required=True)
+            class_name = _dev_spawner_token(payload.get("dev_ai_class"), "AI source class")
+            limit = _clamp_int(payload.get("dev_ai_cache_limit") or 10, 1, 100)
+            index = _clamp_int(payload.get("dev_ai_cache_index") or 0, 0, 99)
+            parts = ["ASD_cache", name, "--index", str(index), "--limit", str(limit)]
+            if class_name:
+                parts.extend(("--class", class_name))
+            cmd = " ".join(parts)
+        elif action == "dev_spawner_barrel_logo":
+            text = _dev_spawner_quoted_text(payload.get("dev_logo_text"))
+            if text == '""':
+                return {"ok": False, "message": "Barrel Logo text is required."}
+            actor = _dev_spawner_token(payload.get("dev_logo_actor") or "barrel", "Logo actor")
+            distance = _clamp_float(payload.get("dev_logo_distance"), 0.0, 30000.0, 2500.0)
+            height = _clamp_float(payload.get("dev_logo_height"), 0.0, 10000.0, 750.0)
+            spacing = _clamp_float(payload.get("dev_logo_spacing"), 1.0, 1000.0, 70.0)
+            scale = _clamp_float(payload.get("dev_logo_scale"), 0.01, 20.0, 0.45)
+            parts = [
+                "ASD_barrellogo",
+                "--text",
+                text,
+                "--actor",
+                actor,
+                "--distance",
+                f"{distance:g}",
+                "--height",
+                f"{height:g}",
+                "--spacing",
+                f"{spacing:g}",
+                "--scale",
+                f"{scale:g}",
+            ]
+            if _dev_spawner_bool(payload.get("dev_logo_include_non_generated")):
+                parts.append("--include-non-generated")
+            cmd = " ".join(parts)
+        else:
+            return {"ok": False, "message": f"Unsupported dev spawner action: {action}"}
+
+        direct_ok, direct_message = _run_actor_script_deployer_command(cmd)
+        if direct_ok:
+            return {
+                "ok": True,
+                "message": f"Ran {cmd.split()[0]} through ActorScriptDeployer. Check unrealsdk.log for detailed ASD output.",
+                "command": cmd,
+                "mode": direct_message,
+            }
+
+        _exec_console(cmd)
+        return {
+            "ok": True,
+            "message": (
+                f"Sent {cmd.split()[0]} to the SDK console fallback. "
+                f"Direct ActorScriptDeployer call was unavailable: {direct_message}"
+            ),
+            "command": cmd,
+            "mode": "console fallback",
+        }
+    except Exception as exc:
+        return {"ok": False, "message": f"Dev spawner action failed: {exc!r}"}
 
 
 def travel_to_map(map_name: object) -> dict[str, Any]:

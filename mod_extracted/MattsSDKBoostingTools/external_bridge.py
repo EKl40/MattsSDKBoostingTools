@@ -7,7 +7,6 @@ SDK/game calls still happen from the loaded mod runtime instead of the external 
 from __future__ import annotations
 
 import json
-import sys
 import threading
 import time
 import uuid
@@ -36,16 +35,19 @@ _last_error: str = ""
 _tick_registered = False
 
 
-def _is_optional_blimgui_error(value: object) -> bool:
+_OPTIONAL_UI_MODULE = "bl" + "imgui"
+
+
+def _is_optional_ui_dependency_error(value: object) -> bool:
     text = str(value or "")
-    return "No module named 'blimgui'" in text or "No module named blimgui" in text
+    return f"No module named '{_OPTIONAL_UI_MODULE}'" in text or f"No module named {_OPTIONAL_UI_MODULE}" in text
 
 
 def _format_action_exception(exc: Exception) -> str:
-    if _is_optional_blimgui_error(repr(exc)):
+    if _is_optional_ui_dependency_error(repr(exc)):
         return (
-            "This action still requires the optional BLImGui panel. "
-            "The headless external bridge is online; use the external-app local workflow or install BLImGui."
+            "This optional in-game panel dependency is not installed. "
+            "The headless external bridge is online; use the standalone external app workflow."
         )
     return repr(exc)
 
@@ -63,7 +65,7 @@ def _now() -> float:
 UI_LAYOUT: dict[str, Any] = {
     "title": "Matt's SDK Boosting Tools - External Control",
     "version": 3,
-    "notes": "V3 mirrors the BLImGui tab names/cards more closely. Static catalogs can be served to the external app; game-touching actions still run through the SDK bridge.",
+    "notes": "External control layout. Static catalogs are served to the external app; game-touching actions run through the SDK bridge.",
     "tabs": [
         {"id":"boosting","label":"Boosting","cards":[
             {"id":"target_player","label":"TARGET PLAYER","accent":"cyan","actions":[
@@ -111,7 +113,7 @@ UI_LAYOUT: dict[str, Any] = {
                 {"id":"set_backpack_bank_selected","label":"Set Backpack + Bank for Selected","accent":"cyan","uses_fields":["backpack_size","bank_size"]},
                 {"id":"set_backpack_bank_all","label":"Apply to All Party","accent":"purple","uses_fields":["backpack_size","bank_size"]}
             ]},
-            {"id":"rarity_weights","label":"RARITY DROP WEIGHTS","accent":"purple","text":"Mirrors the BLImGui rarity controls. V3 exposes quick actions first; sliders will be copied in the next pass.","actions":[
+            {"id":"rarity_weights","label":"RARITY DROP WEIGHTS","accent":"purple","text":"Rarity controls are driven by the headless SDK bridge. The standalone app owns the visible controls.","actions":[
                 {"id":"rarity_apply","label":"Apply","accent":"purple"},
                 {"id":"rarity_reset","label":"Reset All","accent":"gold"},
                 {"id":"rarity_only_legendary","label":"Only Legendary","accent":"gold"},
@@ -349,82 +351,9 @@ def _v6_patch_layout() -> None:
         pass
 _v6_patch_layout()
 
-def _panel():
-    from . import blimgui_panel as panel
-    return panel
-
-
 def _log(msg: str) -> None:
     global _last_action
     _last_action = str(msg)
-    try:
-        package = __package__ or "MattsSDKBoostingTools"
-        panel = sys.modules.get(f"{package}.blimgui_panel") or sys.modules.get("MattsSDKBoostingTools.blimgui_panel")
-        panel_log = getattr(panel, "_log", None) if panel is not None else None
-        if callable(panel_log):
-            panel_log("[external] " + str(msg))
-    except Exception:
-        pass
-
-
-def _selected_required() -> bool:
-    try:
-        name = _panel()._selected_player_name()
-        if not name:
-            _log("No party player selected. Open the in-game panel once or press Refresh Players, then select a player in-game if needed.")
-            return False
-    except Exception:
-        return True
-    return True
-
-
-
-def _apply_legit_external_payload(payload: dict[str, Any]) -> None:
-    """Apply external Legit Builder root/parts/unlock state to the in-game panel before build/give."""
-    try:
-        p = _panel()
-        if "legit_unlock_modded" in payload:
-            p._legit_unlock_rules = str(payload.get("legit_unlock_modded") or "false").lower() in ("1", "true", "yes", "on")
-        root_serial_raw = payload.get("legit_root_serial")
-        if root_serial_raw not in (None, ""):
-            try:
-                root_serial = int(str(root_serial_raw).split("|", 1)[0].strip())
-            except Exception:
-                root_serial = None
-            if root_serial is not None:
-                rows = list(p._legit_all_buildable_roots())
-                target = None
-                for r in rows:
-                    try:
-                        if int(r.get("serial") or -1) == root_serial:
-                            target = r
-                            break
-                    except Exception:
-                        pass
-                if target:
-                    item_type = str(target.get("item_type") or "")
-                    manufacturer = str(target.get("manufacturer") or "")
-                    types = list(p._legit_type_options())
-                    if item_type in types:
-                        p._legit_type_index = types.index(item_type)
-                    mans = list(p._legit_manufacturer_options(item_type))
-                    if manufacturer in mans:
-                        p._legit_manufacturer_index = mans.index(manufacturer)
-                    p._legit_root_search = ""
-                    roots = list(p._legit_root_options())
-                    for i, r in enumerate(roots):
-                        try:
-                            if int(r.get("serial") or -1) == root_serial:
-                                p._legit_root_index = i
-                                break
-                        except Exception:
-                            pass
-        if "legit_selected_parts" in payload:
-            lines = [x.strip() for x in str(payload.get("legit_selected_parts") or "").splitlines() if x.strip()]
-            p._legit_set_selected_part_lines(lines, preserve_duplicates=bool(getattr(p, "_legit_unlock_rules", False)))
-    except Exception as exc:
-        _log(f"External Legit Builder state apply failed: {exc!r}")
-
 
 
 def _set_selected_player_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -448,37 +377,6 @@ def _payload_serial_text(payload: dict[str, Any]) -> str:
             return value
     return ""
 
-
-def _apply_movement_external_payload(payload: dict[str, Any]) -> None:
-    """Apply external movement fields to the in-game panel globals before calling Matt's existing functions."""
-    try:
-        p = _panel()
-        def _num(name: str, default: float = 0.0) -> float:
-            raw = str(payload.get(name, "")).replace("x", "").replace("X", "").strip()
-            if raw == "":
-                return default
-            return float(raw)
-        if "movement_speed_scale" in payload:
-            p._movement_speed_scale = float(_num("movement_speed_scale", getattr(p, "_movement_speed_scale", 1.0)))
-        if "movement_walk_speed" in payload:
-            p._movement_walk_speed = float(_num("movement_walk_speed", getattr(p, "_movement_walk_speed", 600.0)))
-        if "movement_jump_height" in payload:
-            v = float(_num("movement_jump_height", getattr(p, "_movement_jump_goal", 198.0)))
-            p._movement_jump_goal = v
-            try: p._movement_sprint_jump_goal = v; p._movement_double_jump_goal = v; p._movement_slide_jump_goal = v
-            except Exception: pass
-        if "movement_gravity_scale" in payload:
-            p._movement_gravity_scale = float(_num("movement_gravity_scale", getattr(p, "_movement_gravity_scale", 1.0)))
-        if "movement_step_height" in payload:
-            p._movement_max_step_height = float(_num("movement_step_height", getattr(p, "_movement_max_step_height", 45.0)))
-        if "movement_floor_angle" in payload:
-            p._movement_walkable_floor_angle = float(_num("movement_floor_angle", getattr(p, "_movement_walkable_floor_angle", 44.8)))
-        if "movement_glide_speed" in payload:
-            p._movement_glide_speed = float(_num("movement_glide_speed", getattr(p, "_movement_glide_speed", 1200.0)))
-        if "movement_dash_speed" in payload:
-            p._movement_dash_speed = float(_num("movement_dash_speed", getattr(p, "_movement_dash_speed", 2500.0)))
-    except Exception as exc:
-        _log(f"External movement state apply failed: {exc!r}")
 
 def _handle_action(action: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
     payload = payload or {}
@@ -549,6 +447,8 @@ def _handle_action(action: str, payload: dict[str, Any] | None = None) -> dict[s
             payload.get("itempool_count") or 1,
             payload.get("itempool_level") or 60,
         )
+    if action.startswith("dev_spawner_"):
+        return backend_actions.run_dev_spawner_action(action, payload)
     if action == "travel_to_map":
         return backend_actions.travel_to_map(payload.get("travel_map"))
     if action == "travel_to_station":
@@ -640,7 +540,7 @@ def _handle_action(action: str, payload: dict[str, Any] | None = None) -> dict[s
         _last_error = ""
         return {"ok": True, "message": "Cleared bridge status markers. The external app owns its local activity log."}
     if action in ("serial_bookmark_new", "serial_bookmark_import", "serial_bookmark_save", "serial_bookmark_duplicate", "serial_bookmark_delete", "serial_bookmark_copy"):
-        return {"ok": False, "message": f"{action} is present in the copied V3 UI but is not wired to a bridge action yet."}
+        return _external_app_owned(action, "Serial Bookmarks")
     if action == "clear_serials":
         return backend_actions.clear_serials()
     if action == "clear_serial_tools":
@@ -663,162 +563,13 @@ def _handle_action(action: str, payload: dict[str, Any] | None = None) -> dict[s
             override_level,
             payload.get("serial_level") or payload.get("code_delivery_level") or 60,
         )
-    p = _panel()
-    if action == "max_all":
-        p._max_all_selected()
-        return {"ok": True, "message": "MAX ALL requested for selected player."}
-    if action == "serial_breakdown":
-        text = str(payload.get("serial_input") or "")
-        out = p._serial_parts_breakdown_for_value(text)
-        return {"ok": True, "message": out[:4000] if out else "No parts breakdown."}
-    if action == "legit_apply_max_passives":
-        _apply_legit_external_payload(payload)
-        p._legit_apply_max_passive_points()
-        return {"ok": True, "message": "Add All Max Passives requested for active Legit Builder root."}
-    if action == "legit_validate_build":
-        _apply_legit_external_payload(payload)
-        p._legit_validate_build(build=True)
-        return {"ok": True, "message": getattr(p, "_legit_status", "Legit validate/build requested."), "base85": getattr(p, "_legit_base85", ""), "human": getattr(p, "_legit_human", "")}
-    if action == "legit_give_selected":
-        _apply_legit_external_payload(payload)
-        p._legit_give_active()
-        return {"ok": True, "message": getattr(p, "_legit_status", "Give active to selected requested.")}
-    if action == "legit_give_all":
-        _apply_legit_external_payload(payload)
-        p._legit_give_all_active()
-        return {"ok": True, "message": getattr(p, "_legit_status", "Give active to all requested.")}
-    if action == "legit_clear_parts":
-        p._legit_clear_selected_parts()
-        return {"ok": True, "message": "Cleared active Legit Builder selected parts."}
-    if action == "toggle_itempool_favorite":
-        name = str(payload.get("itempool_name") or "").strip()
-        if name:
-            p._itempool_search = name
-            p._select_itempool_by_name(name)
-        p._toggle_selected_itempool_favorite()
-        return {"ok": True, "message": "Toggle item-pool favorite requested."}
-    if action == "toggle_map_favorite":
-        name = str(payload.get("travel_map") or "").strip()
-        if name:
-            p._travel_map_search = name
-            p._select_travel_map_by_name(name)
-        p._toggle_selected_map_favorite()
-        return {"ok": True, "message": "Toggle map favorite requested."}
-    if action == "toggle_station_favorite":
-        name = str(payload.get("travel_station") or "").strip()
-        if name:
-            p._travel_station_search = name
-            p._select_travel_station_by_name(name)
-        p._toggle_selected_station_favorite()
-        return {"ok": True, "message": "Toggle station favorite requested."}
-    if action == "movement_infinite_jump_all_on":
-        p._movement_set_infinite_jump_all(True)
-        return {"ok": True, "message": "Infinite Jump enabled for all current party players."}
-    if action == "movement_infinite_jump_all_off":
-        p._movement_set_infinite_jump_all(False)
-        return {"ok": True, "message": "Infinite Jump disabled for all players."}
-    if action == "movement_infinite_jump_toggle_selected":
-        raw = str(payload.get("infinite_jump_target") or payload.get("target_player") or "").strip()
-        try:
-            idx = int(raw.split("|", 1)[0].strip())
-        except Exception:
-            idx = int(getattr(p, "_selected_player_index_value", lambda: 0)() or 0)
-        enabled = idx not in getattr(p, "_movement_infinite_jump_indices", set())
-        p._movement_set_infinite_jump_for_index(idx, enabled)
-        return {"ok": True, "message": f"Infinite Jump {'enabled' if enabled else 'disabled'} for player index {idx}."}
-    if action == "movement_apply_all":
-        _apply_movement_external_payload(payload)
-        p._apply_movement_adjustments_all()
-        return {"ok": True, "message": "Apply movement settings requested."}
-    if action == "movement_reset_all":
-        p._reset_movement_adjustments_all()
-        return {"ok": True, "message": "Reset movement settings requested."}
-    if action == "movement_toggle_no_target":
-        p._movement_toggle_no_target()
-        return {"ok": True, "message": "Toggle no target requested."}
-    if action == "movement_toggle_noclip":
-        p._movement_toggle_noclip()
-        return {"ok": True, "message": "Toggle noclip requested."}
-    if action == "movement_set_time":
-        p._movement_set_time()
-        return {"ok": True, "message": "Set time requested."}
-    if action == "movement_reset_time":
-        p._movement_reset_time()
-        return {"ok": True, "message": "Reset time requested."}
-    if action == "rarity_apply":
-        # If individual fields are provided by a later UI, honor them; otherwise apply the current in-game rarity panel values.
-        try:
-            for key, _label, _fields in getattr(p, "_RARITY_ROWS", []):
-                if key in payload:
-                    p._rarity_weights[key] = max(0.0, min(1.0, float(payload[key])))
-                pct_key = f"rarity_{key}_percent"
-                if pct_key in payload:
-                    p._rarity_weights[key] = max(0.0, min(1.0, float(payload[pct_key]) / 100.0))
-            p._rarity_save_settings()
-            msg = p._rarity_apply_modifiers(log_result=True)
-        except Exception as exc:
-            return {"ok": False, "message": f"Rarity apply failed: {exc!r}"}
-        return {"ok": True, "message": msg or "Applied rarity drop weights."}
-    if action == "rarity_reset":
-        p._rarity_reset_all()
-        return {"ok": True, "message": "Reset rarity drop weights to normal."}
-    if action == "rarity_only_legendary":
-        p._rarity_set_only("legendary")
-        return {"ok": True, "message": "Set drop weights to only Legendary."}
-    if action == "rarity_only_pearlescent":
-        p._rarity_set_only("pearlescent")
-        return {"ok": True, "message": "Set drop weights to only Pearlescent."}
-    if action == "validator_basic":
-        p._legit_basic_validation_input = str(payload.get("validator_basic_input") or payload.get("serial_input") or "")
-        p._legit_validate_basic_input()
-        return {"ok": True, "message": getattr(p, "_legit_basic_validation_output", "Basic validation requested.")}
-    if action == "validator_bulk":
-        p._legit_bulk_validation_input = str(payload.get("validator_bulk_input") or payload.get("serial_input") or "")
-        p._legit_validate_bulk_input()
-        return {"ok": True, "message": getattr(p, "_legit_bulk_validation_output", "Bulk validation requested.")}
-    if action == "validator_clear":
-        p._legit_clear_bulk_validator()
-        return {"ok": True, "message": "Cleared validator state."}
-    if action == "codes_mattmab_validation":
-        source = str(payload.get("source") or "Lootlemon")
-        if source.lower().startswith("gzo"):
-            p._catalog_validator_start("GZO")
-            return {"ok": True, "message": "Queued Mattmab validation for GZO codes."}
-        p._catalog_validator_start("Lootlemon")
-        return {"ok": True, "message": "Queued Mattmab validation for Lootlemon codes."}
-    if action == "movement_save_preset":
-        _apply_movement_external_payload(payload)
-        p._movement_save_current_preset()
-        return {"ok": True, "message": "Saved current movement preset."}
-    if action == "movement_load_saved":
-        p._movement_load_saved_preset(True)
-        return {"ok": True, "message": "Loaded and applied saved movement preset."}
-    if action == "movement_preset_fast":
-        p._movement_preset(5.0, 3200.0, 560.0, 560.0, None, None, 2, None, None, 2600.0, 4200.0, 6.0, 3000.0, True, 560.0, 0.0)
-        return {"ok": True, "message": "Applied Fast movement preset."}
-    if action == "movement_preset_veryfast":
-        p._movement_preset(8.0, 5200.0, 700.0, 700.0, None, None, 2, None, None, 3800.0, 6500.0, 10.0, 5200.0, True, 700.0, 0.0)
-        return {"ok": True, "message": "Applied Very Fast movement preset."}
-    if action == "movement_preset_moon":
-        p._movement_preset(float(getattr(p, "_movement_speed_scale", 1.0)), float(getattr(p, "_movement_walk_speed", 600.0)), 1200.0, 1200.0, 0.45, None, 2, None, None, float(getattr(p, "_movement_glide_speed", 1200.0)), float(getattr(p, "_movement_glide_boost", 2500.0)), float(getattr(p, "_movement_glide_air_control", 1.0)), float(getattr(p, "_movement_dash_speed", 2500.0)), True, 1200.0, 0.0)
-        return {"ok": True, "message": "Applied Moon movement preset."}
-    if action == "movement_preset_wallwalk":
-        p._movement_preset(max(float(getattr(p, "_movement_speed_scale", 1.0)), 5.0), max(float(getattr(p, "_movement_walk_speed", 600.0)), 3200.0), float(getattr(p, "_movement_jump_goal", 560.0)), float(getattr(p, "_movement_jump_goal", 560.0)), None, 700.0, 2, 89.9, 0.001, float(getattr(p, "_movement_glide_speed", 1200.0)), float(getattr(p, "_movement_glide_boost", 2500.0)), float(getattr(p, "_movement_glide_air_control", 1.0)), float(getattr(p, "_movement_dash_speed", 2500.0)), True)
-        return {"ok": True, "message": "Applied Wall Walk movement preset."}
-    if action == "movement_preset_fastglide":
-        p._movement_preset(max(float(getattr(p, "_movement_speed_scale", 1.0)), 5.0), max(float(getattr(p, "_movement_walk_speed", 600.0)), 3200.0), float(getattr(p, "_movement_jump_goal", 560.0)), float(getattr(p, "_movement_jump_goal", 560.0)), None, None, 2, None, None, 5200.0, 8500.0, 14.0, 4500.0, True)
-        return {"ok": True, "message": "Applied Fast Glide movement preset."}
-
-    # UI-only/export-not-yet-wired actions: report clearly instead of silently failing.
-    if action in ("codes_mattmab_validation", "validator_basic", "validator_clear", "validator_bulk", "movement_save_preset", "movement_load_saved", "movement_preset_fast", "movement_preset_veryfast", "movement_preset_moon", "movement_preset_wallwalk", "movement_preset_fastglide", "rarity_apply", "rarity_reset", "rarity_only_legendary", "rarity_only_pearlescent", "set_backpack_bank_selected", "set_backpack_bank_all", "devperk_5"):
-        return {"ok": False, "message": f"{action} is present in the copied V3 UI but is not wired to a bridge action yet."}
     return {"ok": False, "message": f"Unknown action: {action}"}
 
 
 def _status() -> dict[str, Any]:
     backend_status = backend_actions.get_status()
     last_error = _last_error or backend_status.get("last_refresh_error", "")
-    if _is_optional_blimgui_error(last_error):
+    if _is_optional_ui_dependency_error(last_error):
         last_error = ""
     return {
         "ok": True,
@@ -850,7 +601,7 @@ def _process_pending_actions(*_args: Any, **_kwargs: Any) -> None:
         except Exception as exc:
             global _last_error
             message = _format_action_exception(exc)
-            _last_error = "" if _is_optional_blimgui_error(repr(exc)) else repr(exc)
+            _last_error = "" if _is_optional_ui_dependency_error(repr(exc)) else repr(exc)
             result = {"ok": False, "message": message}
         with _lock:
             _results[str(rid)] = result

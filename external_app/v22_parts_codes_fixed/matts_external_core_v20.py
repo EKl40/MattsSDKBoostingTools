@@ -26,7 +26,7 @@ def load_local_json(filename):
     with open(RESOURCE_DIR / filename, "r", encoding="utf-8") as f: return json.load(f)
 ACCENT_COLORS={"cyan":"#00d4ff","gold":"#ffcc33","green":"#43d17a","purple":"#b36bff","pink":"#ff5db7","red":"#ff5b5b"}
 NUMERIC_FIELDS={"amount","level","serial_level","itempool_count","itempool_level","code_delivery_level","backpack_size","bank_size"}
-CARD_BORDER={"target_player":"#6b7280","quick_max":"#6b7280","serial_rewards":"#8a2be2","experience":"#00a3d7","currency":"#00aa55","backpack_bank":"#00a3d7","rarity_weights":"#8a2be2","cheats_debug":"#b01258","sdu_shinies":"#b37a00","movement_presets":"#00aa55","movement_speed":"#00a3d7","movement_jump":"#8a2be2","movement_utility":"#8a2be2","serial_convert":"#00a3d7","serial_output":"#00a3d7","legit_builder_main":"#00a3d7","legit_slot_grid":"#6b7280","item_pool_main":"#b37a00","map_travel_main":"#b01258","activity_log_main":"#8a2be2","bl4_codes_catalog":"#b37a00","serial_bookmarks_main":"#8a2be2","validator_basic":"#00a3d7"}
+CARD_BORDER={"target_player":"#6b7280","quick_max":"#6b7280","serial_rewards":"#8a2be2","experience":"#00a3d7","currency":"#00aa55","backpack_bank":"#00a3d7","rarity_weights":"#8a2be2","cheats_debug":"#b01258","sdu_shinies":"#b37a00","movement_presets":"#00aa55","movement_speed":"#00a3d7","movement_jump":"#8a2be2","movement_utility":"#8a2be2","serial_convert":"#00a3d7","serial_output":"#00a3d7","legit_builder_main":"#00a3d7","legit_slot_grid":"#6b7280","item_pool_main":"#b37a00","dev_spawner_info":"#ff5b5b","dev_spawner_actor":"#00a3d7","dev_spawner_ai":"#8a2be2","dev_spawner_logo":"#b37a00","map_travel_main":"#b01258","activity_log_main":"#8a2be2","bl4_codes_catalog":"#b37a00","serial_bookmarks_main":"#8a2be2","validator_basic":"#00a3d7"}
 
 def http_json(method,path,data=None,timeout=8.0):
     body=None; headers={"Content-Type":"application/json"}
@@ -216,8 +216,8 @@ class App(tk.Tk):
         row=tk.Frame(parent,bg='#090d17'); row.pack(fill='x',padx=8,pady=2)
         tk.Label(row,text=field.get('label',fid),bg='#090d17',fg='#cfd8f3',width=16 if compact else 18,anchor='w',font=('Segoe UI',8)).pack(side='left')
         var=tk.StringVar(value=str(field.get('default',''))); self.field_vars[fid]=var
-        if typ in ('choice','resource_choice','player_choice','legit_type','legit_manufacturer','legit_root','legit_part'):
-            values=self._values_for_field(field); cb=ttk.Combobox(row,textvariable=var,values=values,state='normal' if typ=='resource_choice' else 'readonly')
+        if typ in ('choice','editable_choice','resource_choice','player_choice','legit_type','legit_manufacturer','legit_root','legit_part'):
+            values=self._values_for_field(field); cb=ttk.Combobox(row,textvariable=var,values=values,state='normal' if typ in ('editable_choice','resource_choice') else 'readonly')
             cb.pack(side='left',fill='x',expand=True); self.widgets[fid]=cb
             if values and not var.get(): var.set(values[0])
             cb.bind('<<ComboboxSelected>>',lambda e,f=field:self._field_changed(f))
@@ -248,7 +248,7 @@ class App(tk.Tk):
             ent=ttk.Entry(row,textvariable=var); ent.pack(side='left',fill='x',expand=True); self.widgets[fid]=ent
     def _values_for_field(self,field):
         typ=field.get('type'); src=field.get('source')
-        if typ=='choice': return list(field.get('choices',[]))
+        if typ in ('choice','editable_choice'): return list(field.get('choices',[]))
         if typ=='player_choice': return list(self.player_options)
         if typ=='resource_choice':
             data=self.resources.get(src)
