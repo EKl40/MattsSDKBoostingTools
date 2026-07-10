@@ -31,6 +31,7 @@ Borderlands 4/
     MattsSDKBoostingTools.sdkmod
     MattsSDKBoostingTools_external/
       MattsBoostingToolsExternal.exe
+      matt_editor/
       resources/
 ```
 
@@ -52,6 +53,7 @@ MSBT_External_Beta/
   MattsSDKBoostingTools.sdkmod
   MattsSDKBoostingTools_external/
     MattsBoostingToolsExternal.exe
+    matt_editor/
     resources/
 ```
 
@@ -63,12 +65,20 @@ Requirements:
 
 - Windows
 - Python with Tkinter available
-- PyInstaller
+- pip
+
+The build script installs the external-app build requirements from `requirements-external-build.txt`, including PyInstaller and pywebview. `pywebview` is bundled into the packaged EXE so beta users do not need to install it.
 
 Build the external app:
 
 ```powershell
 .\build_external_exe.ps1
+```
+
+If the build requirements are already installed, dependency installation can be skipped:
+
+```powershell
+.\build_external_exe.ps1 -SkipDependencyInstall
 ```
 
 Build the beta package:
@@ -92,6 +102,9 @@ mod_extracted/MattsSDKBoostingTools/
 
 external_app/v22_parts_codes_fixed/
   Standalone Tkinter app, local serial tools, validator, Legit Builder helpers, and resources.
+
+external_app/v22_parts_codes_fixed/matt_editor/
+  Vendored Mattmab web editor assets served locally by the standalone app.
 
 external_app/v22_parts_codes_fixed/resources/
   Bundled local resources for BL4 Codes, item pools, travel, legit rules, UI layout, and observed working part options.

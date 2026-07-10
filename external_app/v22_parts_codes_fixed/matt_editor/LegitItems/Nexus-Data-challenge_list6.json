@@ -1,0 +1,102 @@
+{
+  "__copyright": {
+    "author": "Cr4nkSt4r",
+    "github": "https://github.com/Cr4nkSt4r/Borderlands-4.NcsParser"
+  },
+  "challenge_list": {
+    "records": [
+      {
+        "entries": [
+          {
+            "challengelist_achievements_cello": {
+              "challenge_list": "ChallengeList_Achievements_Cello",
+              "displayname": "ChallengeList_Achievements, DFD9158E4BB91B4E39B486896B573CCC, {0}|platform(default=Achievements,xbox=Achievements,playstation=Trophies,sage=Achievements)",
+              "challenges": [
+                "challenge'Challenges_Achievements_35_Cello_enemies_defeat'",
+                "challenge'Challenges_Achievements_36_Cello_boss_defeat'",
+                "challenge'Challenges_Achievements_36_Cello_boss_cat'",
+                "challenge'Challenges_Achievements_36_Cello_boss_meathead'",
+                "challenge'Challenges_Achievements_36_Cello_boss_pangolin'",
+                "challenge'Challenges_Achievements_36_Cello_boss_phalanx'",
+                "challenge'Challenges_Achievements_36_Cello_boss_splice'",
+                "challenge'Challenges_Achievements_37_Cello_missions_main'"
+              ]
+            }
+          },
+          {
+            "challengelist_achievements_mandolin": {
+              "challenge_list": "ChallengeList_Achievements_Mandolin",
+              "displayname": "ChallengeList_Achievements, DFD9158E4BB91B4E39B486896B573CCC, {0}|platform(default=Achievements,xbox=Achievements,playstation=Trophies,sage=Achievements)",
+              "challenges": [
+                "challenge'Challenges_Achievements_46_Mandolin_coin_chest'",
+                "challenge'Challenges_Achievements_47_Mandolin_boss_defeat'",
+                "challenge'Challenges_Achievements_47_Mandolin_boss_cleaner'",
+                "challenge'Challenges_Achievements_47_Mandolin_boss_fixer'",
+                "challenge'Challenges_Achievements_47_Mandolin_boss_main'",
+                "challenge'Challenges_Achievements_48_Mandolin_missions_main'"
+              ]
+            }
+          },
+          {
+            "challengelist_echologs_cello": {
+              "challenge_list": "ChallengeList_EchoLogs_Cello",
+              "displayname": "ChallengeLists_Collectibles_Cello, CDFD3B084776DD896F2E91BB344C2D47, Echo Logs - Cello",
+              "challenges": [
+                "challenge'Challenge_Collect_Echo_Log_Dogleg_1'",
+                "challenge'Challenge_Collect_Echo_Log_Dogleg_2'",
+                "challenge'Challenge_Collect_Echo_Log_Dogleg_3'",
+                "challenge'Challenge_Collect_EchoLog_Auger_Fallen'",
+                "challenge'Challenge_Collect_EchoLog_Auger_Smashed'",
+                "challenge'Challenge_Collect_EchoLog_Pietro_Log1'",
+                "challenge'Challenge_Collect_EchoLog_Pietro_Log2'",
+                "challenge'Challenge_Collect_EchoLog_Pietro_Log3'",
+                "challenge'Challenge_Collect_EchoLog_Pietro_Log4'"
+              ]
+            }
+          },
+          {
+            "challengelist_echologs_tuba": {
+              "challenge_list": "ChallengeList_EchoLogs_Tuba",
+              "displayname": "ChallengeLists_Collectibles_Tuba, 44D5E81E47E60528A76960AAA11679BE, Tuba Echo Logs",
+              "challenges": [
+                "challenge'Challenge_EchoLog_Tuba_1'",
+                "challenge'Challenge_EchoLog_Tuba_2'",
+                "challenge'Challenge_EchoLog_Tuba_3'",
+                "challenge'Challenge_EchoLog_Tuba_4'",
+                "challenge'Challenge_EchoLog_Tuba_5'",
+                "challenge'Challenge_EchoLog_Tuba_6'",
+                "challenge'Challenge_EchoLog_Tuba_7'"
+              ]
+            }
+          },
+          {
+            "challengelist_mandolin_tutorials": {
+              "challenge_list": "ChallengeList_Mandolin_Tutorials",
+              "challenges": [
+                "challenge'Challenge_Mandolin_Tutorial_CoS_BadassSwitch'"
+              ]
+            }
+          },
+          {
+            "challengelist_uvh_rankup_6": {
+              "challenge_list": "ChallengeList_UVH_Rankup_6",
+              "displayname": "UVH_Rankup_6_Challenges, 4D3AEE684C3D6CDE8CB983B1B7A9A0ED, UVH Rankup 6",
+              "challenges": [
+                "challenge'Challenge_UVH_Rankup_6_Bloomreaper'"
+              ]
+            }
+          },
+          {
+            "challengelist_uvh_rankup_7": {
+              "challenge_list": "ChallengeList_UVH_Rankup_7",
+              "displayname": "UVH_Rankup_Challenge, 9345292F41AF53BA504C5FA18A480248, UVH Rankup 7",
+              "challenges": [
+                "challenge'Challenge_UVH_Rankup_7_Parent'"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

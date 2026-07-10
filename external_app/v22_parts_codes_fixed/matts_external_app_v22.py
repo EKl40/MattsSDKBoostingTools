@@ -2,13 +2,14 @@
 from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, messagebox
-import json, re, time, threading
+import json, re, time, threading, sys
 import hashlib
 from pathlib import Path
 from urllib import request
 import webbrowser
 from external_serial_tools import convert_serial_tool, serial_parts_breakdown_for_value, human_to_serial
 import external_legit_builder
+import matt_editor_host
 import external_validator
 from matts_external_core_v20 import ACCENT_COLORS, http_json, RESOURCE_DIR
 from matts_external_legit_travel_v20 import App as V9App
@@ -697,6 +698,30 @@ class App(V9App):
         except Exception: pass
 
     def _tab_legit_builder_v9(self, body, cards):
+        editor_wrap, editor_inner = self._card_wrap(body, 'Mattmab Item Editor', '#00a3d7')
+        editor_wrap.pack(fill='x', padx=6, pady=5)
+        tk.Label(
+            editor_inner,
+            text="Open Mattmab's full item editor locally. It runs from this app folder, uses MSBT's local serial API, and adds MSBT delivery buttons inside the editor.",
+            bg='#090d17',
+            fg='#9fb3d9',
+            font=('Segoe UI',8),
+            anchor='w',
+            justify='left',
+            wraplength=1200,
+        ).pack(fill='x', padx=8, pady=(5,2))
+        editor_btns = tk.Frame(editor_inner, bg='#090d17')
+        editor_btns.pack(fill='x', padx=8, pady=(4,8))
+        self._button(editor_btns, {'id':'open_matt_editor','label':'Open Full Mattmab Editor','accent':'gold'}, 0, cols=3)
+        tk.Label(
+            editor_inner,
+            text="Proof pass: opens embedded when WebView support is available; otherwise it opens in your browser. Delivery uses the current MSBT selected target.",
+            bg='#090d17',
+            fg='#cfd8f3',
+            font=('Segoe UI',8),
+            anchor='w',
+        ).pack(fill='x', padx=8, pady=(0,6))
+
         main, inner = self._card_wrap(body, 'Stripped Legit Builder', '#00a3d7')
         main.pack(fill='x', padx=6, pady=5)
         tk.Label(inner, text="Matt-style external builder: choose Type → Manufacturer → Root, then pick parts inside each slot panel. Unlock mode preserves duplicates.", bg='#090d17', fg='#9fb3d9', font=('Segoe UI',8), anchor='w').pack(fill='x', padx=8, pady=(5,2))
@@ -861,6 +886,21 @@ class App(V9App):
             self.field_vars['legit_status'].set(self.legit_status_message)
         if log_global:
             self.log(self.legit_status_message)
+
+    def _open_matt_editor_local(self):
+        try:
+            url, embedded, detail = matt_editor_host.open_editor_embedded()
+        except Exception as exc:
+            msg = f'Mattmab editor failed to open: {exc}'
+            self.log(msg)
+            if 'legit_status' in self.field_vars:
+                self._set_legit_status(msg, log_global=False)
+            return
+        self.log(f'Mattmab item editor opened locally: {url}')
+        if detail:
+            self.log(detail)
+        if 'legit_status' in self.field_vars:
+            self._set_legit_status('Mattmab item editor opened locally with MSBT delivery buttons.' if embedded else 'Mattmab item editor opened in your browser with MSBT delivery buttons.', log_global=False)
 
     def _run_local_legit_validate(self):
         try:
@@ -3631,6 +3671,8 @@ class App(V9App):
             return self._run_local_legit_validate()
         if aid == 'local_legit_build_base85':
             return self._run_local_legit_build_base85()
+        if aid == 'open_matt_editor':
+            return self._open_matt_editor_local()
         if aid == 'legit_give_selected':
             return self._deliver_legit_build('selected')
         if aid == 'legit_give_all':
@@ -3653,4 +3695,6 @@ class App(V9App):
         return super().run_action(action)
 
 if __name__ == '__main__':
+    if len(sys.argv) >= 3 and sys.argv[1] == '--msbt-matt-editor-webview':
+        raise SystemExit(matt_editor_host.run_webview_window(sys.argv[2]))
     App().mainloop()

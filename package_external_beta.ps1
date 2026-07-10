@@ -6,6 +6,8 @@ $ExternalFolder = Join-Path $PackageRoot "MattsSDKBoostingTools_external"
 $ExeBuildFolder = Join-Path $RepoRoot "dist\MattsBoostingToolsExternal"
 $AppSource = Join-Path $RepoRoot "external_app\v22_parts_codes_fixed"
 $ResourcesSource = Join-Path $AppSource "resources"
+$MattEditorSource = Join-Path $AppSource "matt_editor"
+$MattEditorAdapter = Join-Path $AppSource "matt_editor_adapter.js"
 $SdkMod = Join-Path $RepoRoot "MattsSDKBoostingTools.sdkmod"
 $SdkBuildScript = Join-Path $RepoRoot "build_sdkmod.ps1"
 $ZipPath = Join-Path $RepoRoot "MSBT_External_Beta.zip"
@@ -36,6 +38,12 @@ if (-not (Test-Path $SdkMod)) {
 if (-not (Test-Path $ResourcesSource)) {
     throw "Current external app resources folder not found: $ResourcesSource"
 }
+if (-not (Test-Path (Join-Path $MattEditorSource "index.html"))) {
+    throw "Current Mattmab editor assets folder not found: $MattEditorSource"
+}
+if (-not (Test-Path $MattEditorAdapter)) {
+    throw "Current Mattmab editor adapter not found: $MattEditorAdapter"
+}
 
 Assert-UnderRepo $PackageRoot
 Assert-UnderRepo $ZipPath
@@ -47,6 +55,9 @@ New-Item -ItemType Directory -Force $ExternalFolder | Out-Null
 Copy-Item -Recurse -Force (Join-Path $ExeBuildFolder "*") $ExternalFolder
 Remove-Item -Recurse -Force (Join-Path $ExternalFolder "resources") -ErrorAction SilentlyContinue
 Copy-Item -Recurse -Force $ResourcesSource (Join-Path $ExternalFolder "resources")
+Remove-Item -Recurse -Force (Join-Path $ExternalFolder "matt_editor") -ErrorAction SilentlyContinue
+Copy-Item -Recurse -Force $MattEditorSource (Join-Path $ExternalFolder "matt_editor")
+Copy-Item -Force $MattEditorAdapter (Join-Path $ExternalFolder "matt_editor_adapter.js")
 Copy-Item -Force $SdkMod (Join-Path $PackageRoot "MattsSDKBoostingTools.sdkmod")
 Copy-Item -Force (Join-Path $RepoRoot "Launch_MSBT_External_App.bat") (Join-Path $PackageRoot "Launch_MSBT_External_App.bat")
 
@@ -60,6 +71,7 @@ Install:
 
 Python is not required when MattsBoostingToolsExternal.exe is present.
 The resources folder stays beside the exe so bookmarks/cache files remain writable.
+The matt_editor folder stays beside the exe so the embedded/local Mattmab item editor can run without internet, Electron, or Node.
 "@ | Set-Content -Encoding UTF8 (Join-Path $PackageRoot "README_FIRST.txt")
 
 Get-ChildItem -Recurse -Directory $PackageRoot -Filter "__pycache__" | Remove-Item -Recurse -Force

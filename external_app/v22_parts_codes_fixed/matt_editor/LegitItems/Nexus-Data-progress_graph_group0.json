@@ -1,0 +1,23 @@
+{
+  "__copyright": {
+    "author": "Cr4nkSt4r",
+    "github": "https://github.com/Cr4nkSt4r/Borderlands-4.NcsParser"
+  },
+  "progress_graph_group": {
+    "records": [
+      {
+        "entries": [
+          {
+            "oak2_globalprogressgraph_group": {
+              "progress_graph_group": "Oak2_GlobalProgressGraph_Group",
+              "groupname": "Global",
+              "progressgraphs": [
+                "progress_graph'sdu_upgrades'"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

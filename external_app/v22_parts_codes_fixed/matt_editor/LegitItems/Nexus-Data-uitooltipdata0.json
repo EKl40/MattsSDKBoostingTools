@@ -1,0 +1,1001 @@
+{
+  "__copyright": {
+    "author": "Cr4nkSt4r",
+    "github": "https://github.com/Cr4nkSt4r/Borderlands-4.NcsParser"
+  },
+  "uitooltipdata": {
+    "records": [
+      {
+        "entries": [
+          {
+            "tooltip_abandon_mission": {
+              "uitooltipdata": "tooltip_abandon_mission",
+              "body": "PauseMenu, AbandonMissionDescriptionText, Abandon the mission replay.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_abandon_takedown": {
+              "uitooltipdata": "tooltip_abandon_takedown",
+              "body": "PauseMenu, AbandonTakedownDescriptionText, Abandon the Takedown mission.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_abandon_true_activity": {
+              "uitooltipdata": "tooltip_abandon_true_activity",
+              "body": "PauseMenu, AbandonTrueReplayDescriptionText, Abandon the Ordonite Fracture mission.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_action_skill": {
+              "uitooltipdata": "tooltip_action_skill",
+              "header": "tooltips_skills, 1ECF36C64D287094CB26F5B814B08BAF, Name",
+              "subheader": "tooltips_skills, C25CA09E4FDA8209F414F591122575FA, Action Skill",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'EquipActionSkillText'"
+                },
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'UnequipActionSkillText'"
+                }
+              ],
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_augment": {
+              "uitooltipdata": "tooltip_augment",
+              "notifytext": "tooltips_augments, E818CA6E41B79174D93F9F9839647C8B, Equip Augment to activate",
+              "header": "tooltips_augments, 6ACFC1704158D630940DEABDE6B816A6, Augment - Temp",
+              "subheader": "tooltips_augments, 805BB1864213047177D3A8ADB4046372, Augment",
+              "body": "tooltips_passives, BB47486A4F969329FC2015AF4C1BFF65, This Action Skill Augment currently does nothing.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'EquipAugmentText'"
+                },
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'UnequipAugmentText'"
+                },
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SwapAugmentText'"
+                }
+              ],
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_capstone": {
+              "uitooltipdata": "tooltip_capstone",
+              "notifytext": "tooltips_capstones, F0C70F9749E0D33FBAC3FA9995FF50FE, Equip Capstone to activate",
+              "header": "tooltips_capstones, 4A4DBF9B4FDD2C2F6B28A594D442BEB2, Capstone - Temp",
+              "subheader": "tooltips_capstones, 8575496511BD4A3EB268DE4CE68CF67C, Capstone",
+              "body": "tooltips_passives, A41B21584B502AD896AA8387690032F9, This Action Skill Capstone currently does nothing.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'EquipCapstoneText'"
+                },
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'UnequipCapstoneText'"
+                },
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SwapCapstoneText'"
+                }
+              ],
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_class_mod": {
+              "uitooltipdata": "tooltip_class_mod",
+              "header": "tooltips_skills, 8DB8E4034DA286FB4001758BE9BA4311, Class Mod",
+              "body": "tooltips_skills, B397636648B4E6EF3BDF9FA0311F1731, Class Mods are pieces of Gear that provide Passives and other unique benefits. Equip one from your Inventory to see the new stats reflected here.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'EquipActionSkillText'"
+                },
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'UnequipActionSkillText'"
+                }
+              ],
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_continue_game": {
+              "uitooltipdata": "tooltip_continue_game",
+              "body": "MainMenu, ContinueGameDescriptionText, Continue your Campaign from where you left off.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_create_character": {
+              "uitooltipdata": "tooltip_create_character",
+              "body": "MainMenu, CreateCharacterDescriptionText, Create a new Vault Hunter.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_crossplay": {
+              "uitooltipdata": "tooltip_crossplay",
+              "body": "GameSettings, CrossplayDescriptionText, Change whether you want to allow players from other platforms. This is a per-player preference.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'GameSettings_ChangeCrossplay'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_difficulty": {
+              "uitooltipdata": "tooltip_difficulty",
+              "body": "GameSettings, GameSettingsDifficultyText, Select a difficulty level for your game.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'GameSettings_AdjustDifficulty'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_exodus_preview": {
+              "uitooltipdata": "tooltip_exodus_preview",
+              "header": "tooltips_skills, ExodusPreviewHeader, CHROMA Accelerator",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'",
+              "body": "tooltips_skills, F89217544C107E0B05EBCE915EF44AB6, [primary]Harlowe[/primary] fires an [secondary]Unstable Energy Pocket[/secondary] that deals [secondary]Damage[/secondary] to enemies it [secondary]passes through[/secondary], and can be manually exploded to deal massive [secondary]Damage[/secondary].",
+              "image": "Asset'/Game/uiresources/_shared/assets/ui_art_action_skill_tooltip_images/action_skill_grav_exodus.action_skill_grav_exodus'",
+              "parent": "uitooltipdata'tooltip_action_skill'"
+            }
+          },
+          {
+            "tooltip_game_settings": {
+              "uitooltipdata": "tooltip_game_settings",
+              "header": "MainMenu, CurrentGameSettingsText, Current Session Settings",
+              "body": "MainMenu, GameSettingsDescriptionText, Edit settings for your game session.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_group_privacy": {
+              "uitooltipdata": "tooltip_group_privacy",
+              "body": "GameSettings, GroupPrivacyDescriptionText, Change who you want to allow into your party.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'GameSettings_AdjustGroupPrivacy'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_lan": {
+              "uitooltipdata": "tooltip_lan",
+              "body": "MainMenu, AFB5070E4B10BE9CD8F102B09FDC0D35, View {0}|platform(default=LAN,sage=local play) games to join. Select new game/continue to host.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "/Script/GbxUICoherent.TooltipDataDef"
+            }
+          },
+          {
+            "tooltip_lan_join": {
+              "uitooltipdata": "tooltip_lan_join",
+              "body": "menu_lan, 95EAD6CE48244456225A48A4B6951832, Join",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "/Script/GbxUICoherent.TooltipDataDef"
+            }
+          },
+          {
+            "tooltip_leave_party": {
+              "uitooltipdata": "tooltip_leave_party",
+              "body": "MainMenu, LeavePartyDescriptionText, Remove yourself from the current party.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_load_character": {
+              "uitooltipdata": "tooltip_load_character",
+              "body": "MainMenu, LoadCharacterDescriptionText, Load a different Vault Hunter, or create a new one!",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'EditVaultHunterText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_load_character_disabled": {
+              "uitooltipdata": "tooltip_load_character_disabled",
+              "body": "MainMenu, LoadCharacterDisabledDescriptionText, Temporarily disabled while current Vault Hunter is loading.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_lobby_exit_party": {
+              "uitooltipdata": "tooltip_lobby_exit_party",
+              "header": "Lobby, ExitPartyTooltipHeaderText, Leave Party",
+              "body": "Lobby, ExitPartyTooltipBodyText, Remove yourself from the current party.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_lobby_invite_recent_friends": {
+              "uitooltipdata": "tooltip_lobby_invite_recent_friends",
+              "header": "Lobby, InviteRecentFriendsTooltipHeaderText, Reform Party",
+              "body": "Lobby, InviteRecentFriendsTooltipBodyText, Reform your current character's last party of friends.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_lobby_platform_invites_epic": {
+              "uitooltipdata": "tooltip_lobby_platform_invites_epic",
+              "header": "Lobby, PlatformInvitesTooltipHeaderText_Epic, Invite Epic Friends",
+              "body": "Lobby, PlatformInvitesTooltipBodyText_Epic, Don't see your Epic friend in the list below? Try here instead.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_lobby_platform_invites_psn": {
+              "uitooltipdata": "tooltip_lobby_platform_invites_psn",
+              "header": "Lobby, PlatformInvitesTooltipHeaderText_PSN, Invite PSN™ Friends",
+              "body": "Lobby, PlatformInvitesTooltipBodyText_PSN, Don't see your PlayStation™Network friend in the list below? Try here instead.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_lobby_platform_invites_sage": {
+              "uitooltipdata": "tooltip_lobby_platform_invites_sage",
+              "header": "Lobby, PlatformInvitesTooltipHeaderText_Sage, Invite Nintendo Friends",
+              "body": "Lobby, PlatformInvitesTooltipBodyText_Sage, Don't see your Nintendo friend in the list below? Try here instead.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_lobby_platform_invites_steam": {
+              "uitooltipdata": "tooltip_lobby_platform_invites_steam",
+              "header": "Lobby, PlatformInvitesTooltipHeaderText_Steam, Invite Steam Friends",
+              "body": "Lobby, PlatformInvitesTooltipBodyText_Steam, Don't see your Steam friend in the list below? Try here instead.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_lobby_platform_invites_xboxlive": {
+              "uitooltipdata": "tooltip_lobby_platform_invites_xboxlive",
+              "header": "Lobby, PlatformInvitesTooltipHeaderText_Xbox, Invite Xbox Friends",
+              "body": "Lobby, PlatformInvitesTooltipBodyText_Xbox, Don't see your Xbox friend in the list below? Try here instead.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_lobby_shift_invites": {
+              "uitooltipdata": "tooltip_lobby_shift_invites",
+              "header": "Lobby, ShiftInvitesTooltipHeaderText, SHiFT Notifications",
+              "body": "Lobby, ShiftInvitesTooltipBodyText, Manage SHiFT party invites and friend requests.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_matchmaking": {
+              "uitooltipdata": "tooltip_matchmaking",
+              "body": "MainMenu, MatchmakingTooltipDescriptionText, Enter matchmaking.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_matchmaking_disabled": {
+              "uitooltipdata": "tooltip_matchmaking_disabled",
+              "body": "MainMenu, MatchmakingDisabledTooltipDescriptionText, Only available to the host.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_matchmaking_disabled_lobby_info": {
+              "uitooltipdata": "tooltip_matchmaking_disabled_lobby_info",
+              "header": "LobbyInfo, MatchmakingDisabledTooltipText, Matchmaking",
+              "body": "LobbyInfo, 7CE6CEB2435B5058FD567AAA1C682F35, Only available to the host.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_matchmaking_disabled_no_character": {
+              "uitooltipdata": "tooltip_matchmaking_disabled_no_character",
+              "body": "MainMenu, MatchmakingDisabledNoCharacterTooltipDescriptionText, Create a New Game to enable matchmaking.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_matchmaking_disabled_no_character_lobby_info": {
+              "uitooltipdata": "tooltip_matchmaking_disabled_no_character_lobby_info",
+              "header": "LobbyInfo, MatchmakingDisabledNoCharacterTooltipText, Matchmaking",
+              "body": "LobbyInfo, 772A000B43F3A52567EEAAA38F9C71EC, Create a New Game to enable matchmaking.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_matchmaking_indicator": {
+              "uitooltipdata": "tooltip_matchmaking_indicator",
+              "header": "Matchmaking, MatchmakingForText, You are currently matchmaking for:",
+              "type": "Asset'/Script/OakGame.OakUITooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_matchmaking_lobby_info": {
+              "uitooltipdata": "tooltip_matchmaking_lobby_info",
+              "header": "LobbyInfo, MatchmakingTooltipText, Matchmaking",
+              "body": "LobbyInfo, 492F2EE841E3EBC672221CBDB07E4C31, Enter matchmaking.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_matchmaking_region": {
+              "uitooltipdata": "tooltip_matchmaking_region",
+              "body": "GameSettings, MatchmakingRegionBodyText, Select region(s) to matchmake with.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'MatchmakingSettingsSelectRegions'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_mini_news": {
+              "uitooltipdata": "tooltip_mini_news",
+              "body": "MainMenu, NewGameDescriptionText, Begin your Campaign.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'ViewDetailsText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_new_game": {
+              "uitooltipdata": "tooltip_new_game",
+              "body": "MainMenu, NewGameDescriptionText, Begin your Campaign.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_new_game_disabled": {
+              "uitooltipdata": "tooltip_new_game_disabled",
+              "body": "MainMenu, NewGameDisabledDescriptionText, Unavailable while matchmaking.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_options": {
+              "uitooltipdata": "tooltip_options",
+              "body": "MainMenu, OptionsMenuDescriptionText, Edit your game options here.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_party_crossplay_setting": {
+              "uitooltipdata": "tooltip_party_crossplay_setting",
+              "body": "GameSettings, CrossplaySettingDescriptionText, Whether the party currently allows players from other platforms. Enabled unless any party members have their personal preference off, including split screen players.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_party_crossplay_setting_pc": {
+              "uitooltipdata": "tooltip_party_crossplay_setting_pc",
+              "body": "GameSettings, CrossplaySettingDescriptionTextPc, Whether the party currently allows players from other platforms. Enabled unless any party members have their personal preference off.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_pause_exit_game": {
+              "uitooltipdata": "tooltip_pause_exit_game",
+              "body": "PauseMenu, ExitGameDescriptionText, Exit the game.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_pause_leave_splitscreen": {
+              "uitooltipdata": "tooltip_pause_leave_splitscreen",
+              "body": "PauseMenu, LeaveSplitScreenDescriptionText, Exit split screen gameplay.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_quit_game": {
+              "uitooltipdata": "tooltip_quit_game",
+              "body": "MainMenu, QuitGameDescriptionText, Quit the game and return to desktop.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_redshift": {
+              "uitooltipdata": "tooltip_redshift",
+              "header": "tooltips_skills, B952BA954B08ADD92F622EB96C788D10, Terminal",
+              "body": "tooltips_skills, 54C9E3184701664D8868CAAF7A33C8A1, Press [ACTION SKILL BUTTON] to throw your H.A.L.O. TERMINAL that continually emits CRYO DAMAGE. Additionally, enemies near the Terminal take INCREASED DAMAGE from all sources and allies near the Terminal take DECREASED DAMAGE. Additionally, all damage dealt by the Terminal is converted into OVERSHIELD and allies near the Terminal are granted OVERSHIELD.[newline][newline][Accelerator Action]: Pressing [ACTION SKILL BUTTON] causes your Terminal to TELEPORT to a location under your crosshair.",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'",
+              "parent": "uitooltipdata'tooltip_action_skill'"
+            }
+          },
+          {
+            "tooltip_redshift_preview": {
+              "uitooltipdata": "tooltip_redshift_preview",
+              "header": "tooltips_skills, RedshiftPreviewHeader, Terminal",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'",
+              "body": "tooltips_skills, 99927E7D4B2527D21CABF5BF9168E62D, Deploy a [primary]Terminal[/primary] that [secondary]damages enemies[/secondary] nearby for a duration, and [secondary]protects allies[/secondary].",
+              "parent": "uitooltipdata'tooltip_action_skill'"
+            }
+          },
+          {
+            "tooltip_resume": {
+              "uitooltipdata": "tooltip_resume",
+              "body": "PauseMenu, ResumeDescriptionText, Exit this menu and resume gameplay.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_shift": {
+              "uitooltipdata": "tooltip_shift",
+              "body": "MainMenu, ShiftDescriptionText, View SHiFT information here.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_spec_loadout_0": {
+              "uitooltipdata": "tooltip_spec_loadout_0",
+              "requiredtext": "tooltips_specializations, 2391A5E14CE5AE5F3F528192AB9220F4, Requires 1 Point",
+              "header": "tooltips_augments, 7A2B8BB944413B1F703476B9360959CB, Passive Skill Slot 1",
+              "body": "tooltips_passives, 04E1A06F44C7CE55F9482492BC38CCA1, Acquire more Specialization Points to unlock additional Specialization slots.",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_spec_loadout_1": {
+              "uitooltipdata": "tooltip_spec_loadout_1",
+              "requiredtext": "tooltips_specializations, 90E2418A45EACC472A4E3E858C43B264, Requires 10 Points",
+              "header": "tooltips_augments, 9EA185E14A837BE7D5CC3DAE69971702, Passive Skill Slot 2",
+              "body": "tooltips_passives, C348C9664F4204FD7E8C90A3E26FF8C0, Acquire more Specialization Points to unlock additional Specialization slots.",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_spec_loadout_2": {
+              "uitooltipdata": "tooltip_spec_loadout_2",
+              "requiredtext": "tooltips_specializations, 3184A73B467B49968102679BE6B20319, Requires 20 Points",
+              "header": "tooltips_augments, B1333E3E4DAD8EA332F9E2871B251C7B, Passive Skill Slot 3",
+              "body": "tooltips_passives, 36E6E6DE4DB1AF168EA3DBAC29E2FE92, Acquire more Specialization Points to unlock additional Specialization slots.",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_spec_loadout_3": {
+              "uitooltipdata": "tooltip_spec_loadout_3",
+              "requiredtext": "tooltips_specializations, D953DE17421ED49FE93040BED067FD47, Requires 30 Points",
+              "header": "tooltips_augments, 7C4AA45F432D630DD87A5FBCE25445C5, Passive Skill Slot 4",
+              "body": "tooltips_passives, D4F5406243E72AB84159259F3B43E9BF, Acquire more Specialization Points to unlock additional Specialization slots.",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_specialization": {
+              "uitooltipdata": "tooltip_specialization",
+              "notifytext": "tooltips_augments, C1029502443F2E81CB1B71A344FECA56, Equip Passive to activate",
+              "header": "tooltips_augments, D48ECD704D2DED162F6262AC4983E421, Specialization",
+              "subheader": "tooltips_augments, 97813011465CDB7F08D79DA80B815B07, Specialization",
+              "body": "tooltips_passives, 51613F5A4CD362FA3D1C179105D1A2D3, This Specialization Skill currently does nothing.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'EquipPassiveTExt'"
+                },
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'UnequipPassiveText'"
+                },
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SwapPassiveText'"
+                }
+              ],
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_specialization_invest": {
+              "uitooltipdata": "tooltip_specialization_invest",
+              "header": "tooltips_augments, B93470B949E536B8C2DAFEA7E6080A70, Specialization",
+              "subheader": "tooltips_augments, 29EDC10B4688174E7DB409ABEAB7C7B1, Specialization",
+              "body": "tooltips_passives, 246D4B544452F89010B6428C73A63464, This Specialization Skill currently does nothing.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'InvestPointText'"
+                },
+                {
+                  "input_action": "action_ui_cursor_hold",
+                  "displaydata": "display_data'InvestFivePointsText'"
+                },
+                {
+                  "input_action": "action_ui_skills_reset_node",
+                  "displaydata": "display_data'RespecNodeText'"
+                }
+              ],
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_stasis_preview": {
+              "uitooltipdata": "tooltip_stasis_preview",
+              "header": "tooltips_skills, StasisPreviewHeader, Zero-Point",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'",
+              "body": "tooltips_skills, ECA3B4D043EF927B40088790927CE27D, [primary]Harlowe[/primary] [secondary]Lifts[/secondary] her current target off the ground for a [secondary]Duration[/secondary], and can [secondary]Slam[/secondary] them into the ground, causing an explosion.",
+              "image": "Asset'/Game/uiresources/_shared/assets/ui_art_action_skill_tooltip_images/action_skill_grav_stasis.action_skill_grav_stasis'",
+              "parent": "uitooltipdata'tooltip_action_skill'"
+            }
+          },
+          {
+            "tooltip_terminal_preview": {
+              "uitooltipdata": "tooltip_terminal_preview",
+              "header": "tooltips_skills, TerminalPreviewHeader, Flux Generator",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'",
+              "body": "tooltips_skills, TerminalPreviewBody, [primary]Harlowe[/primary] throws a [primary]Flux Generator[/primary] to a target location, dealing [secondary]Damage[/secondary] over time in a large area, while also restoring [secondary]Shields[/secondary] to her [secondary]Allies[/secondary].[newline][newline]The [primary]Flux Generator[/primary] can be repositioned while [secondary]Active[/secondary].",
+              "image": "Asset'/Game/uiresources/_shared/assets/ui_art_action_skill_tooltip_images/action_skill_grav_terminal.action_skill_grav_terminal'",
+              "parent": "uitooltipdata'tooltip_action_skill'"
+            }
+          },
+          {
+            "tooltip_trait_gravitar": {
+              "uitooltipdata": "tooltip_trait_gravitar",
+              "stats": [
+                {
+                  "structtype": "Asset'/Script/GbxGame.NumericDisplayValue'",
+                  "attributedef": "attribute'att_ui_grav_exodus_entangled_damageShared'",
+                  "bdisplayaspercentage": "true",
+                  "buseformattext": "true",
+                  "formattext": "tooltips_traits, 287AC4C54E0E703101D424AC31950A09, [secondary]Shared Damage:[/secondary] $VALUE$ of Damage Dealt"
+                },
+                {
+                  "structtype": "Asset'/Script/GbxGame.NumericDisplayValue'",
+                  "attributedef": "attribute'att_ui_grav_exodus_entangled_duration'",
+                  "buseformattext": "true",
+                  "formattext": "tooltips_traits, F5CE8E464AE1665F7018EA85CFA6C632, [secondary]Duration:[/secondary] $VALUE$ seconds"
+                }
+              ],
+              "header": "tooltips_traits, A28110A74EFE1C741770768E04E56CC6, Entanglement",
+              "subheader": "tooltips_traits, 0074B8C542ED7D1676293595BB1CCEE3, Vault Hunter Trait",
+              "body": "tooltips_traits, 798D735A451754C2A03A71BD332306AA, Whenever [primary]Harlowe[/primary] uses her [secondary]Action Skill[/secondary] on enemies, those enemies become [primary]Entangled[/primary].[newline][newline][secondary]Entangled:[/secondary] [primary]Entangled[/primary] enemies share a portion of [secondary]Gun Damage[/secondary] and [secondary]Skill Damage[/secondary] with all other [primary]Entangled[/primary] enemies.",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_trait_gravitar_preview": {
+              "uitooltipdata": "tooltip_trait_gravitar_preview",
+              "header": "tooltips_traits, GravPreviewHeader, Entanglement",
+              "subheader": "tooltips_traits, GravPreviewSubheader, Vault Hunter Trait",
+              "body": "tooltips_traits, DD13DA22404D2C62C2F6C8BB0A76C273, [primary]Harlowe's[/primary] [secondary]Action Skills[/secondary] apply [primary]Entangled[/primary] to enemies, causing them to share [secondary]Damage taken[/secondary].",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_trait_overdrive": {
+              "uitooltipdata": "tooltip_trait_overdrive",
+              "stats": [
+                {
+                  "structtype": "Asset'/Script/GbxGame.NumericDisplayValue'",
+                  "attributedef": "attribute'att_ui_exo_overdrive_damageincrease'",
+                  "bdisplayaspercentage": "true",
+                  "bdisplayplussign": "true",
+                  "buseformattext": "true",
+                  "formattext": "tooltips_traits, 1B0772F24E5BCDA917EFB4B90D949774, [secondary]Damage:[/secondary] $VALUE$"
+                },
+                {
+                  "structtype": "Asset'/Script/GbxGame.NumericDisplayValue'",
+                  "attributedef": "attribute'att_ui_exo_overdrive_movespeed'",
+                  "bdisplayaspercentage": "true",
+                  "bdisplayplussign": "true",
+                  "buseformattext": "true",
+                  "formattext": "tooltips_traits, E977EC9C472B7BEFE4ABA5A9DB5ED342, [secondary]Movement Speed:[/secondary] $VALUE$"
+                },
+                {
+                  "structtype": "Asset'/Script/GbxGame.NumericDisplayValue'",
+                  "attributedef": "attribute'att_ui_exo_overdrive_duration'",
+                  "buseformattext": "true",
+                  "formattext": "tooltips_traits, 720F4075403D6FC051A124AA473F0E44, [secondary]Duration:[/secondary] $VALUE$ seconds"
+                }
+              ],
+              "header": "tooltips_traits, 46D5E42A40114B30FD9471A2BC6C3F63, Overdrive",
+              "subheader": "tooltips_traits, 00EA8E9249E8FFE10F0AC48226B56ED0, Vault Hunter Trait",
+              "body": "tooltips_traits, 97FA5D634731CC983D5EF2B3C111B3D6, Whenever [primary]Rafa[/primary] activates an [secondary]Action Skill[/secondary], he enters [primary]Overdrive[/primary]. While an [secondary]Action Skill[/secondary] is active, [primary]Overdrive's Duration[/primary] does not decrease.[newline][newline]While [primary]Overdrive[/primary] is active, [primary]Rafa[/primary] gains increased [secondary]Movement Speed[/secondary] and deals increased [secondary]Damage[/secondary] with all sources.",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_trait_overdrive_preview": {
+              "uitooltipdata": "tooltip_trait_overdrive_preview",
+              "header": "tooltips_traits, OverdrivePreviewHeader, Overdrive",
+              "subheader": "tooltips_traits, OverdrivePreviewSubheader, Vault Hunter Trait",
+              "body": "tooltips_traits, 14B0137F4F58FBBCEC9CD6B948363199, [primary]Rafa[/primary] goes into [primary]Overdrive[/primary] when he uses an [secondary]Action Skill[/secondary], gaining increased [secondary] Damage Dealt[/secondary] and [secondary]Movement Speed[/secondary] for a [secondary]Duration[/secondary].",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_true_mode": {
+              "uitooltipdata": "tooltip_true_mode",
+              "body": "GameSettings, GameSettingsTrueModeText, When enabled, game difficulty is balanced as if you had a full party of four players.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'GameSettings_AdjustTrueMode'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_truemode_disabled": {
+              "uitooltipdata": "tooltip_truemode_disabled",
+              "body": "PauseMenu, FBEE28654563A7A383545F9A9E42BF33, You can not change UVH levels at this time.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_uvh_disabled": {
+              "uitooltipdata": "tooltip_uvh_disabled",
+              "body": "PauseMenu, 25BF26B74425EC0EACE2758BEC86559D, You can not change UVH levels at this time.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_vault_hunter_level": {
+              "uitooltipdata": "tooltip_vault_hunter_level",
+              "body": "GameSettings, GameSettingsVaultHunterLevelText, Select an Ultimate Vault Hunter rank for your game. NOTE: You must be at your highest current UVH rank to access the Wildcard rank-up mission.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'GameSettings_AdjustVaultHunterLevel'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          }
+        ]
+      },
+      {
+        "entries": [
+          {
+            "tooltip_loadout_action": {
+              "uitooltipdata": "tooltip_loadout_action",
+              "requiredtext": "tooltips_loadout, B5E4CB3740ACD253964C9CA4E56130A3, Requires an Unlocked Action Skill",
+              "header": "tooltips_loadout, 454EBCBD4E2F27533582DC930213DA5D, Action Skill Slot",
+              "body": "tooltips_loadout, 125C16EC4247472519E18C9B70865AA6, Action Skills are core abilities unique to each Vault Hunter and can be swapped at any time. Note that Augments and Capstones can only be equipped when the Action Skill from their associated Skill Tree is active.",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_loadout_augment": {
+              "uitooltipdata": "tooltip_loadout_augment",
+              "requiredtext": "tooltips_loadout, EE60F1D945BDD1846956F8B096B2E301, Requires an Unlocked Augment",
+              "header": "tooltips_loadout, EB5B475F4046615EDF7E20A550202F59, Augment Slot",
+              "body": "tooltips_passives, B74BAD0945319A645304EC8F08FF2997, Augments enhance Action Skills with secondary effects and are exclusive to their linked Skill. You can equip one Augment at a time and swap freely between those you have unlocked.",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_loadout_capstone": {
+              "uitooltipdata": "tooltip_loadout_capstone",
+              "requiredtext": "tooltips_loadout, 74C8A8394BCDECD1A81EF6943E63515C, Requires an Unlocked Capstone",
+              "header": "tooltips_loadout, B717ACB44CC4ECC98D81698BD2CA5771, Capstone Slot",
+              "body": "tooltips_passives, ECB4DF26421B6ACBBB17EFA8ED6C379F, Capstones transform Action Skills with powerful effects and are exclusive to their linked Skill. You can equip one Capstone at a time and swap freely between those you have unlocked.",
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          }
+        ]
+      },
+      {
+        "entries": [
+          {
+            "tooltip_passive": {
+              "uitooltipdata": "tooltip_passive",
+              "stats": [
+                {
+                  "structtype": "Asset'/Script/GbxGame.StringDisplayValue'",
+                  "argsmap": {
+                    "pairs": {
+                      "pair2271591783": {
+                        "key": "value",
+                        "value": {
+                          "structtype": "Asset'/Script/GbxGame.NumericDisplayValue'",
+                          "bdisplayaspercentage": "true",
+                          "bdisplaypercentasfloat": "true",
+                          "bdisplayplussign": "true",
+                          "floatprecision": "2"
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "header": "tooltips_passives, 98A5182E4092137F09E920BC9B65F1C8, Passive Skill - Temp",
+              "subheader": "tooltips_passives, C91E60C84029CC39C7A68A9FDD2D97EC, Passive",
+              "body": "tooltips_passives, F03166BE479E5E14B57B40AC83154DE6, This Passive Skill currently does nothing.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'InvestPointText'"
+                },
+                {
+                  "input_action": "action_ui_cursor_hold",
+                  "displaydata": "display_data'InvestMaxText'"
+                }
+              ],
+              "type": "Asset'/Script/OakGame.OakUISkillTooltipDataDef'"
+            }
+          },
+          {
+            "tooltip_shared_progression_off": {
+              "uitooltipdata": "tooltip_shared_progression_off",
+              "header": "menu_new_game, CD77EF774E3DD3C8114CD3A188C6732C, Off",
+              "body": "menu_new_game, 1512B668483B75A10BF0728139B9A99D, This character will start fresh with minimal [secondary]unlocks[/secondary]  and  [secondary]discoveries[/secondary] carrying over.[newline][newline][newline][warning][warning_text]Warning: This cannot be undone.[/warning_text]",
+              "image": "Asset'/Game/uiresources/menu_new_game/assets/ui_art_asset/shared_progression_off_bg.shared_progression_off_bg'",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "/Script/OakGame.OakUITooltipDataDef"
+            }
+          },
+          {
+            "tooltip_shared_progression_on": {
+              "uitooltipdata": "tooltip_shared_progression_on",
+              "header": "menu_new_game, EB171A5D4D675EE3C18114A6D9AA2172, On",
+              "body": "menu_new_game, AA3266A549E717056CA98AAB4EDE4FFE, This character inherits [secondary]Collectibles, Activities, Map Progress, SDU Tokens, Vault Powers, Vehicle Skins[/secondary] and [secondary]Hover Drives[/secondary]. [newline][newline][secondary]Fast Travel[/secondary] locations require campaign progress to unlock, even if revealed.[newline][newline][newline][warning][warning_text]Warning: This cannot be undone.[/warning_text]",
+              "image": "Asset'/Game/uiresources/menu_new_game/assets/ui_art_asset/shared_progression_on_bg.shared_progression_on_bg'",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "/Script/OakGame.OakUITooltipDataDef"
+            }
+          }
+        ]
+      },
+      {
+        "entries": [
+          {
+            "tooltip_photomode": {
+              "uitooltipdata": "tooltip_photomode",
+              "body": "PauseMenu, PhotoModeDescriptionText, Exit this menu and enter photo mode.",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'SelectText'"
+                }
+              ],
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_photomode_disabled_cinematic": {
+              "uitooltipdata": "tooltip_photomode_disabled_cinematic",
+              "body": "PauseMenu, 3C81D8904D0534C4B7CA9C98E69A1776, Photo mode is not available while in a cutscene.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_photomode_disabled_downed": {
+              "uitooltipdata": "tooltip_photomode_disabled_downed",
+              "body": "PauseMenu, 8A54CCFF429421CEB2FD7899B7A50962, Photo mode is not available while in Fight For Your Life.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_photomode_disabled_no_character": {
+              "uitooltipdata": "tooltip_photomode_disabled_no_character",
+              "body": "PauseMenu, FA3AFAC747CDF49DBD29999860C23BAD, Photo mode is not available without a character.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          },
+          {
+            "tooltip_photomode_disabled_split": {
+              "uitooltipdata": "tooltip_photomode_disabled_split",
+              "body": "PauseMenu, B64B568446195848D98B059D543B6C4B, Photo mode is not available while in split screen.",
+              "type": "Asset'/Script/GbxUICoherent.ToolTipDataDef'"
+            }
+          }
+        ]
+      },
+      {
+        "entries": [
+          {
+            "tooltip_vc_currency": {
+              "uitooltipdata": "tooltip_vc_currency",
+              "header": "tooltips_vaultcards, 29A5DB494942C4ACAA3EADBB0DEBC1C5, Vault Card Tickets",
+              "body": "tooltips_vaultcards, 462BDCEA428171BDD025F886F32D169D, Earn [primary]Vault Card Tickets[/primary] by completing [secondary]Daily[/secondary] and [secondary]Weekly Challenges[/secondary] and by leveling up your [secondary]Vault Card[/secondary]. [newline][newline]Use [primary]Vault Card Tickets[/primary] to purchase a variety of [secondary]Cosmetic rewards[/secondary] and  powerful [secondary]Gear![/secondary][newline][newline] [primary]Level {0:02}[/primary] - {1:n0} / {2:n0}  ([secondary]{3}%[/secondary])",
+              "hintentries": [
+                {
+                  "input_action": "action_ui_cursor_click",
+                  "displaydata": "display_data'PreviewText'"
+                }
+              ],
+              "type": "/Script/GbxUICoherent.TooltipDataDef"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
