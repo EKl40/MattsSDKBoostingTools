@@ -1,0 +1,7 @@
+const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("msbt", {
+  bridgeRequest: (args) => ipcRenderer.invoke("bridge:request", args),
+  mattEditorUrl: () => ipcRenderer.invoke("app:mattEditorUrl"),
+  openExternal: (url) => ipcRenderer.invoke("app:openExternal", url)
+});

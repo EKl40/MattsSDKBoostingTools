@@ -1,0 +1,17 @@
+{
+  "name": "msbt-electron-poc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Small Electron proof of concept for MSBT bridge + Matt editor shell testing.",
+  "main": "main.js",
+  "scripts": {
+    "start": "node_modules\\electron\\dist\\electron.exe .",
+    "check": "node --check main.js && node --check preload.js && node --check renderer.js"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0"
+  },
+  "allowScripts": {
+    "electron@37.10.3": true
+  }
+}

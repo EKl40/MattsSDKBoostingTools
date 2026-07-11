@@ -1,0 +1,151 @@
+:root {
+  color-scheme: dark;
+  --bg: #090d17;
+  --panel: #0f1522;
+  --panel-soft: #151f33;
+  --text: #edf4ff;
+  --muted: #9fb3d9;
+  --cyan: #00d4ff;
+  --gold: #ffd447;
+  --purple: #b36bff;
+  --line: #344052;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  background: #080c15;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  color: var(--cyan);
+  font-size: 20px;
+}
+
+h2 {
+  color: var(--purple);
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 5px;
+}
+
+button {
+  border: 0;
+  background: #172033;
+  color: var(--cyan);
+  font-weight: 700;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #20304d;
+}
+
+.header-actions,
+.button-row,
+.section-heading {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.section-heading {
+  justify-content: space-between;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 12px;
+  padding: 12px;
+  min-height: calc(100vh - 74px);
+}
+
+.panel {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 14px;
+}
+
+.status-panel {
+  border-color: var(--cyan);
+}
+
+.delivery-panel {
+  border-color: var(--gold);
+}
+
+.editor-panel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  border-color: var(--purple);
+  min-height: 740px;
+}
+
+label {
+  display: block;
+  margin: 12px 0 6px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+textarea,
+pre {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #181214;
+  color: var(--text);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+}
+
+textarea {
+  min-height: 120px;
+  resize: vertical;
+  padding: 10px;
+}
+
+pre {
+  min-height: 120px;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
+iframe {
+  flex: 1;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  background: #111827;
+  width: 100%;
+}
