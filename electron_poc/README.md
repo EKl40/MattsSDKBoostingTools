@@ -48,8 +48,8 @@ npm.cmd rebuild electron
 5. Click Check Updates and confirm it reads GitHub release metadata.
 6. Click Load Editor and confirm the Matt editor appears inside Electron with the MSBT Delivery panel injected.
 7. Build or load an item in the editor.
-8. Click Detect Serial From Editor.
-9. If a serial is found, click Confirm Serial.
+8. Choose a target if needed, then click Send. If exactly one serial is visible, MSBT auto-detects and confirms it.
+9. Use Detect Serial From Editor / Confirm Serial only when you want to verify manually or choose between multiple detected serials.
 10. Test delivery only with a small known-safe serial and a selected target.
 
 ## What This POC Does Not Do Yet

@@ -92,6 +92,26 @@ function renderPlayers(status = {}) {
   );
 }
 
+function collectEditorSerials() {
+  let doc;
+  try {
+    doc = els.editorFrame.contentDocument || (els.editorFrame.contentWindow && els.editorFrame.contentWindow.document);
+  } catch (error) {
+    setLine(els.serialSummary, `Could not read the editor frame: ${error.message || error}`, "bad");
+    return [];
+  }
+  if (!doc) return [];
+
+  const ids = ["finalOutputBase85", "mi_finalOutputBase85", "serializedOutput", "bulkSerialOutput"];
+  const chunks = ids.map((id) => {
+    const element = doc.getElementById(id);
+    if (!element) return "";
+    return element.value || element.textContent || "";
+  });
+  chunks.push(doc.body ? doc.body.innerText || "" : "");
+  return serialsFromText(chunks.join("\n"));
+}
+
 function serialValidationMessage(serial) {
   const text = String(serial || "").trim();
   if (!text) return "No @U serial is confirmed.";
@@ -114,11 +134,11 @@ function updateSerialState(message = "", options = {}) {
     state.confirmedSerial = "";
   }
   const ready = !validation && state.confirmedSerial === serial;
-  const text = message || (validation ? validation : ready ? "Serial confirmed and ready." : "Serial staged. Click Confirm Serial before delivery.");
+  const text = message || (validation ? validation : ready ? "Serial confirmed and ready." : "Serial staged. Send can auto-confirm one serial.");
   setLine(els.serialSummary, text, validation ? "warning" : ready ? "ok" : "warning");
   document.querySelectorAll("[data-mode]").forEach((button) => {
     const mode = button.dataset.mode;
-    const modeReady = ready && (mode !== "selected" || Boolean(state.selectedTarget));
+    const modeReady = mode !== "selected" || Boolean(state.selectedTarget);
     button.disabled = !modeReady;
   });
 }
@@ -181,9 +201,30 @@ function firstPlayerTarget() {
 
 async function sendSerial(mode) {
   updateSerialState();
-  const serial = state.confirmedSerial;
+  let serial = state.confirmedSerial;
   if (!serial) {
-    setOutput(els.deliveryOutput, "Confirm one @U serial before sending.");
+    const manualSerial = els.serialInput.value.trim();
+    if (!serialValidationMessage(manualSerial)) {
+      state.confirmedSerial = manualSerial;
+      serial = manualSerial;
+      setLine(els.serialSummary, "Serial auto-confirmed for delivery.", "ok");
+    }
+  }
+  if (!serial) {
+    const found = collectEditorSerials();
+    if (found.length === 1) {
+      els.serialInput.value = found[0];
+      state.confirmedSerial = found[0];
+      serial = found[0];
+      setLine(els.serialSummary, "Detected and confirmed one editor serial for delivery.", "ok");
+    } else if (found.length > 1) {
+      setOutput(els.deliveryOutput, `Found ${found.length} serials. Click Detect Serial From Editor, choose/verify the one to send, then send again.`);
+      setLine(els.serialSummary, "Multiple serials detected. Pick one before sending.", "warning");
+      return;
+    }
+  }
+  if (!serial) {
+    setOutput(els.deliveryOutput, "No single @U serial is ready to send. Build an item or paste one serial first.");
     return;
   }
   if (mode === "selected" && !state.selectedTarget) {
@@ -198,6 +239,13 @@ async function sendSerial(mode) {
   };
   const action = actionByMode[mode];
   setOutput(els.deliveryOutput, `Sending ${action}...`);
+  if (mode === "selected") {
+    const targetResult = await bridgeAction("set_target_player", { target_player: state.selectedTarget }, 10000);
+    if (!targetResult || !targetResult.data || !targetResult.data.ok) {
+      setOutput(els.deliveryOutput, targetResult);
+      return;
+    }
+  }
   const result = await bridgeAction(action, {
     serial_text: serial,
     serial_override_level: false,
@@ -213,27 +261,11 @@ function serialsFromText(text) {
 }
 
 function detectSerialFromEditor() {
-  let doc;
-  try {
-    doc = els.editorFrame.contentDocument || (els.editorFrame.contentWindow && els.editorFrame.contentWindow.document);
-  } catch (error) {
-    setLine(els.serialSummary, `Could not read the editor frame: ${error.message || error}`, "bad");
-    return;
-  }
-  if (!doc) {
+  const found = collectEditorSerials();
+  if (!found.length && !els.editorFrame.contentWindow) {
     setLine(els.serialSummary, "Load the Matt editor before detecting a serial.", "warning");
     return;
   }
-
-  const ids = ["finalOutputBase85", "mi_finalOutputBase85", "serializedOutput", "bulkSerialOutput"];
-  const chunks = ids.map((id) => {
-    const element = doc.getElementById(id);
-    if (!element) return "";
-    return element.value || element.textContent || "";
-  });
-  chunks.push(doc.body ? doc.body.innerText || "" : "");
-
-  const found = serialsFromText(chunks.join("\n"));
   if (!found.length) {
     setLine(els.serialSummary, "No @U serial found in the editor yet. Build or serialize an item first.", "warning");
     return;
@@ -296,6 +328,7 @@ async function checkUpdates() {
 document.getElementById("statusBtn").addEventListener("click", bridgeStatus);
 document.getElementById("setTargetBtn").addEventListener("click", () => setTarget(els.targetSelect.value));
 document.getElementById("firstTargetBtn").addEventListener("click", firstPlayerTarget);
+els.targetSelect.addEventListener("change", () => setTarget(els.targetSelect.value));
 document.getElementById("updateBtn").addEventListener("click", checkUpdates);
 document.getElementById("downloadBtn").addEventListener("click", () => window.msbt.openExternal(state.latestDownloadUrl));
 document.getElementById("repoBtn").addEventListener("click", () => {

@@ -1,5 +1,5 @@
 (function () {
-  window.MSBT_MATT_EDITOR_ADAPTER_VERSION = "deliver-4-target-selector";
+  window.MSBT_MATT_EDITOR_ADAPTER_VERSION = "deliver-5-simplified-send";
 
   var BASE85_RE = /@U[0-9A-Za-z!#$%&()*+\-;<=>?@^_`{\/}~]+/g;
   var SOURCE_DEFS = [
@@ -171,6 +171,9 @@
     state.bridgeOnline = true;
     state.players = Array.isArray(status.players) ? status.players : [];
     state.selectedTarget = targetFromStatus(status);
+    if (!state.selectedTarget && state.players.length === 1) {
+      state.selectedTarget = playerValue(state.players[0]);
+    }
     state.selectedTargetLabel = targetLabelFromValue(state.selectedTarget);
     renderTargetSection();
     refreshPreview(message || ("Bridge online. " + state.selectedTargetLabel + " | Players: " + state.players.length), ok !== false);
@@ -205,10 +208,10 @@
         preview.textContent = "Serial to Send confirmed:\n" + state.confirmedSerial;
         preview.style.color = "#f1f5ff";
       } else if (state.pendingSerial) {
-        preview.textContent = "Detected serial waiting for confirmation:\n" + state.pendingSerial;
+        preview.textContent = "Detected serial ready to confirm or send:\n" + state.pendingSerial;
         preview.style.color = "#ffcc33";
       } else if (state.detected.length > 1) {
-        preview.textContent = "Multiple @U serials detected. Choose one, then click Confirm Serial to Send.";
+        preview.textContent = "Multiple @U serials detected. Choose one, then send or click Confirm Serial.";
         preview.style.color = "#ffcc33";
       } else {
         preview.textContent = "No serial confirmed yet";
@@ -239,7 +242,7 @@
 
     for (var j = 0; j < sendButtons.length; j += 1) {
       var mode = sendButtons[j].getAttribute("data-msbt-deliver-mode") || "";
-      var modeReady = ready && (mode !== "selected" || !!state.selectedTarget);
+      var modeReady = mode !== "selected" || !!state.selectedTarget;
       sendButtons[j].disabled = !modeReady;
       sendButtons[j].style.opacity = modeReady ? "1" : ".55";
       sendButtons[j].style.cursor = modeReady ? "pointer" : "not-allowed";
@@ -259,7 +262,8 @@
     }
     if (state.detected.length === 1) {
       state.pendingSerial = state.detected[0].serial;
-      refreshPreview("Serial detected. Click Confirm Serial to Send before delivery.", false);
+      state.confirmedSerial = state.pendingSerial;
+      refreshPreview("Serial detected and confirmed. You can send it now.", true);
       return;
     }
     refreshPreview("Multiple @U serials detected. Choose the serial to send.", false);
@@ -282,7 +286,7 @@
     if (panel && active && panel.contains(active)) return;
     if (!state.confirmedSerial || state.stale) return;
     state.stale = true;
-    refreshPreview("Serial may be stale - click Refresh Detected Serial before sending.", false);
+    refreshPreview("Serial may be stale - send will re-check the latest editor output.", false);
   }
 
   function button(label, mode, color) {
@@ -354,17 +358,45 @@
     }
   }
 
+  function prepareSerialForDelivery() {
+    if (!state.stale) {
+      var ready = currentSerial();
+      if (ready) return ready;
+    }
+
+    var previousSerial = state.pendingSerial || state.confirmedSerial || "";
+    state.detected = collectDetectedSerials();
+    state.pendingSerial = "";
+    state.confirmedSerial = "";
+    state.stale = false;
+
+    if (state.detected.length === 0) {
+      refreshPreview("No serial detected. Build or select one item first.", false);
+      return "";
+    }
+
+    if (state.detected.length === 1) {
+      state.pendingSerial = state.detected[0].serial;
+      state.confirmedSerial = state.pendingSerial;
+      refreshPreview("Detected and confirmed one serial for delivery.", true);
+      return state.confirmedSerial;
+    }
+
+    for (var i = 0; i < state.detected.length; i += 1) {
+      if (state.detected[i].serial === previousSerial) {
+        state.pendingSerial = previousSerial;
+        state.confirmedSerial = previousSerial;
+        refreshPreview("Selected serial confirmed for delivery.", true);
+        return state.confirmedSerial;
+      }
+    }
+
+    refreshPreview("Multiple @U serials detected. Choose one, then send again.", false);
+    return "";
+  }
+
   async function deliver(mode) {
-    var validation = serialValidationMessage(state.confirmedSerial);
-    if (state.stale) {
-      setStatus("Serial may be stale - click Refresh Detected Serial, then Confirm Serial to Send.", false);
-      return;
-    }
-    if (validation) {
-      setStatus(validation, false);
-      return;
-    }
-    var serial = currentSerial();
+    var serial = prepareSerialForDelivery();
     if (!serial) {
       setStatus("No confirmed item serial is ready to send. Build or select an item first.", false);
       return;
@@ -431,7 +463,7 @@
     panel.appendChild(title);
 
     var hint = document.createElement("div");
-    hint.textContent = "MSBT sends only the final @U item serial. Item building stays local in the editor. Pick a target here before sending to Selected Player.";
+    hint.textContent = "MSBT sends only the final @U item serial. Build an item, choose a target, then Send. If more than one serial is detected, choose which one to send.";
     hint.style.cssText = "color:#9fb3d9;font-size:11px;margin-bottom:8px;line-height:1.35;";
     panel.appendChild(hint);
 
@@ -477,13 +509,13 @@
     refreshRow.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;";
     var refreshBtn = document.createElement("button");
     refreshBtn.type = "button";
-    refreshBtn.textContent = "Refresh Detected Serial";
+    refreshBtn.textContent = "Refresh Serial";
     refreshBtn.style.cssText = "padding:7px 9px;border:none;background:#172033;color:#00d4ff;font-weight:700;font-size:11px;cursor:pointer;";
     refreshBtn.addEventListener("click", refreshDetectedSerials);
     refreshRow.appendChild(refreshBtn);
     var confirmBtn = document.createElement("button");
     confirmBtn.type = "button";
-    confirmBtn.textContent = "Confirm Serial to Send";
+    confirmBtn.textContent = "Confirm Serial";
     confirmBtn.style.cssText = "padding:7px 9px;border:none;background:#172033;color:#43d17a;font-weight:700;font-size:11px;cursor:pointer;";
     confirmBtn.addEventListener("click", confirmPendingSerial);
     refreshRow.appendChild(confirmBtn);
@@ -518,7 +550,7 @@
       state.pendingSerial = state.detected[idx].serial;
       state.confirmedSerial = "";
       state.stale = false;
-      refreshPreview("Selected serial. Click Confirm Serial to Send before delivery.", false);
+      refreshPreview("Selected serial. Send can confirm it automatically.", false);
     });
     selectWrap.appendChild(select);
     panel.appendChild(selectWrap);
@@ -552,7 +584,7 @@
     statusRow.style.cssText = "display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;";
     var status = document.createElement("div");
     status.id = "msbt-delivery-status";
-    status.textContent = "Build an item, then send it through MSBT.";
+    status.textContent = "Build an item, choose a target, then send it through MSBT.";
     status.style.cssText = "font-size:11px;color:#43d17a;line-height:1.35;min-height:28px;";
     statusRow.appendChild(status);
     var statusBtn = document.createElement("button");
