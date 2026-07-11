@@ -40,6 +40,8 @@ npm.cmd rebuild electron
 - GitHub release manifest check through `releases/latest.json`
 - local Matt editor iframe loading from the hosted `matt_editor_host.py` URL, which injects `matt_editor_adapter.js`
 - Boosting bridge actions for target, serial delivery, XP, currency, inventory, quick max, chest/bank/debug helpers
+- local Serial Tools conversion and parts breakdown through the existing standalone helper
+- local Validator basic/bulk checks through the existing standalone helper
 - local item pool browser backed by `resources/item_pools.json`, with live spawn through `spawn_itempool`
 - local map/station browser backed by `resources/travelmaps_flat.json` and `resources/travelstations.json`, with live travel through the bridge
 - local activity/status view
@@ -55,9 +57,11 @@ npm.cmd rebuild electron
 7. Build or load an item in the editor.
 8. Choose a target if needed, then click Send. If exactly one serial is visible, MSBT auto-detects and confirms it.
 9. Use Detect Serial From Editor / Confirm Serial only when you want to verify manually or choose between multiple detected serials.
-10. Open Item Pool Spawning and confirm the local list filters.
-11. Open Map Travel and confirm maps and stations load from local resources.
-12. Test live delivery/spawn/travel only with known-safe values.
+10. Open Serial Tools and confirm the known `@U` test serial converts locally.
+11. Open Validator and confirm the same serial returns a local validation result.
+12. Open Item Pool Spawning and confirm the local list filters.
+13. Open Map Travel and confirm maps and stations load from local resources.
+14. Test live delivery/spawn/travel only with known-safe values.
 
 ## What This POC Does Not Do Yet
 

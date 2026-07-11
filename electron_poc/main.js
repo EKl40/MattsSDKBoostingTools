@@ -88,11 +88,93 @@ ipcMain.handle("app:readResourceJson", async (_event, resourceName) => {
   }
 });
 
+ipcMain.handle("app:serialToolsConvert", async (_event, text) => {
+  const code = [
+    "import json, sys",
+    "import external_serial_tools",
+    "result = external_serial_tools.convert_serial_tool(sys.stdin.read())",
+    "print(json.dumps(result))"
+  ].join("\n");
+  return runExternalPythonJson(code, text, 15000);
+});
+
+ipcMain.handle("app:validatorBasic", async (_event, text) => {
+  const code = [
+    "import json, sys",
+    "import external_validator",
+    "result = external_validator.validate_basic_input(sys.stdin.read())",
+    "print(json.dumps(result, default=str))"
+  ].join("\n");
+  return runExternalPythonJson(code, text, 20000);
+});
+
+ipcMain.handle("app:validatorBulk", async (_event, text) => {
+  const code = [
+    "import json, sys",
+    "import external_validator",
+    "result = external_validator.validate_bulk_input(sys.stdin.read())",
+    "print(json.dumps(result, default=str))"
+  ].join("\n");
+  return runExternalPythonJson(code, text, 60000);
+});
+
 function pythonCandidates() {
   const out = [];
   if (process.env.MSBT_PYTHON) out.push(process.env.MSBT_PYTHON);
   out.push(LOCAL_VENV_PYTHON, "python", "py");
   return Array.from(new Set(out.filter(Boolean)));
+}
+
+function runPythonSnippet(pythonExe, code, inputText = "", timeoutMs = 15000) {
+  const args = pythonExe === "py" ? ["-3", "-c", code] : ["-c", code];
+  const child = spawn(pythonExe, args, {
+    cwd: EXTERNAL_APP_DIR,
+    stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true
+  });
+
+  return new Promise((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`Timed out running helper with ${pythonExe}. ${stderr.trim()}`.trim()));
+    }, timeoutMs);
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.on("exit", (codeNumber) => {
+      clearTimeout(timer);
+      if (codeNumber === 0) {
+        resolve(stdout.trim());
+      } else {
+        reject(new Error(stderr.trim() || `Helper exited with code ${codeNumber}`));
+      }
+    });
+
+    child.stdin.end(String(inputText || ""));
+  });
+}
+
+async function runExternalPythonJson(code, inputText = "", timeoutMs = 15000) {
+  const errors = [];
+  for (const candidate of pythonCandidates()) {
+    try {
+      const stdout = await runPythonSnippet(candidate, code, inputText, timeoutMs);
+      return JSON.parse(stdout || "{}");
+    } catch (error) {
+      errors.push(`${candidate}: ${error && error.message ? error.message : error}`);
+    }
+  }
+  return { ok: false, message: errors.join("\n") };
 }
 
 function hostProcessIsAlive() {

@@ -21,6 +21,8 @@
 
   <nav class="tab-bar" aria-label="Electron test tabs">
     <button class="active" data-tab="boosting">Boosting</button>
+    <button data-tab="serial-tools">Serial Tools</button>
+    <button data-tab="validator">Validator</button>
     <button data-tab="matt-editor">Matt Editor</button>
     <button data-tab="item-pool">Item Pool Spawning</button>
     <button data-tab="map-travel">Map Travel</button>
@@ -161,6 +163,70 @@
       <section class="panel">
         <h2>Boosting Result</h2>
         <pre id="boostOutput">No boosting action sent yet.</pre>
+      </section>
+    </section>
+
+    <section id="tab-serial-tools" class="tab-panel">
+      <section class="panel cyan">
+        <h2>Serial Tools</h2>
+        <p>Convert @U Base85 serials and decoded human-readable serials locally. No SDK bridge call is used here.</p>
+        <label for="serialToolsInput">Input</label>
+        <textarea id="serialToolsInput" spellcheck="false" placeholder="@U... or decoded human serial"></textarea>
+        <div class="button-row wrap">
+          <button id="serialToolsConvertBtn">Convert</button>
+          <button id="serialToolsClearBtn" class="danger">Clear</button>
+        </div>
+        <div id="serialToolsStatus" class="status-line warning">Paste a @U serial or deserialized serial text above.</div>
+        <div class="grid three">
+          <div>
+            <div class="section-heading compact-heading">
+              <h3>Deserialized Output</h3>
+              <button id="copyDeserializedBtn">Copy</button>
+            </div>
+            <textarea id="serialToolsDeserialized" class="output-box small" spellcheck="false" readonly></textarea>
+          </div>
+          <div>
+            <div class="section-heading compact-heading">
+              <h3>Parts Breakdown</h3>
+              <button id="copyBreakdownBtn">Copy</button>
+            </div>
+            <textarea id="serialToolsBreakdown" class="output-box medium" spellcheck="false" readonly></textarea>
+          </div>
+          <div>
+            <div class="section-heading compact-heading">
+              <h3>@U Serialized Output</h3>
+              <button id="copySerializedBtn">Copy</button>
+            </div>
+            <textarea id="serialToolsSerialized" class="output-box small" spellcheck="false" readonly></textarea>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section id="tab-validator" class="tab-panel">
+      <section class="panel purple">
+        <h2>Validator</h2>
+        <p>Validate one serial or a pasted list locally using the standalone Mattmab-style helper.</p>
+        <div class="grid two">
+          <div>
+            <label for="validatorBasicInput">Basic validation input</label>
+            <textarea id="validatorBasicInput" class="output-box small" spellcheck="false" placeholder="@U... or decoded human serial"></textarea>
+            <div class="button-row wrap">
+              <button id="validatorBasicBtn">Validate Basic</button>
+              <button id="validatorClearBtn" class="danger">Clear Validator</button>
+            </div>
+          </div>
+          <div>
+            <label for="validatorBulkInput">Bulk validator input</label>
+            <textarea id="validatorBulkInput" class="output-box medium" spellcheck="false" placeholder="One serial per line"></textarea>
+            <div class="button-row wrap">
+              <button id="validatorBulkBtn">Validate Bulk</button>
+            </div>
+          </div>
+        </div>
+        <div id="validatorStatus" class="status-line warning">Idle</div>
+        <label for="validatorOutput">Validation result</label>
+        <textarea id="validatorOutput" class="output-box large" spellcheck="false" readonly></textarea>
       </section>
     </section>
 

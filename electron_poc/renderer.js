@@ -20,8 +20,18 @@ const els = {
   itempoolOutput: document.getElementById("itempoolOutput"),
   itempoolSearch: document.getElementById("itempoolSearch"),
   itempoolSummary: document.getElementById("itempoolSummary"),
+  copyBreakdownBtn: document.getElementById("copyBreakdownBtn"),
+  copyDeserializedBtn: document.getElementById("copyDeserializedBtn"),
+  copySerializedBtn: document.getElementById("copySerializedBtn"),
   serialInput: document.getElementById("serialInput"),
   serialSummary: document.getElementById("serialSummary"),
+  serialToolsBreakdown: document.getElementById("serialToolsBreakdown"),
+  serialToolsConvertBtn: document.getElementById("serialToolsConvertBtn"),
+  serialToolsClearBtn: document.getElementById("serialToolsClearBtn"),
+  serialToolsDeserialized: document.getElementById("serialToolsDeserialized"),
+  serialToolsInput: document.getElementById("serialToolsInput"),
+  serialToolsSerialized: document.getElementById("serialToolsSerialized"),
+  serialToolsStatus: document.getElementById("serialToolsStatus"),
   statusOutput: document.getElementById("statusOutput"),
   targetSelect: document.getElementById("targetSelect"),
   targetSummary: document.getElementById("targetSummary"),
@@ -37,6 +47,13 @@ const els = {
   travelStationSummary: document.getElementById("travelStationSummary"),
   updateOutput: document.getElementById("updateOutput"),
   updateSummary: document.getElementById("updateSummary"),
+  validatorBasicBtn: document.getElementById("validatorBasicBtn"),
+  validatorBasicInput: document.getElementById("validatorBasicInput"),
+  validatorBulkBtn: document.getElementById("validatorBulkBtn"),
+  validatorBulkInput: document.getElementById("validatorBulkInput"),
+  validatorClearBtn: document.getElementById("validatorClearBtn"),
+  validatorOutput: document.getElementById("validatorOutput"),
+  validatorStatus: document.getElementById("validatorStatus"),
   xpLevel: document.getElementById("xpLevel"),
   xpTrack: document.getElementById("xpTrack")
 };
@@ -68,6 +85,11 @@ function setOutput(node, value) {
   node.textContent = typeof value === "string" ? value : pretty(value);
 }
 
+function setTextValue(node, value) {
+  if (!node) return;
+  node.value = typeof value === "string" ? value : pretty(value);
+}
+
 function setLine(node, text, kind = "") {
   if (!node) return;
   node.textContent = text;
@@ -80,6 +102,16 @@ function appendActivity(message) {
   state.activity.push(`[${stamp}] ${message}`);
   if (state.activity.length > 250) state.activity.shift();
   setOutput(els.activityOutput, state.activity.join("\n"));
+}
+
+async function copyText(value, statusNode, label) {
+  const text = String(value || "");
+  if (!text.trim()) {
+    setLine(statusNode, `${label} is empty.`, "warning");
+    return;
+  }
+  await navigator.clipboard.writeText(text);
+  setLine(statusNode, `${label} copied.`, "ok");
 }
 
 function resultMessage(result) {
@@ -427,6 +459,51 @@ async function checkUpdates() {
   }
 }
 
+async function convertSerialTools() {
+  const text = getValue(els.serialToolsInput);
+  setLine(els.serialToolsStatus, "Converting locally...", "warning");
+  const result = await window.msbt.serialToolsConvert(text);
+  const ok = String(result && result.ok).toLowerCase() === "true" || result.ok === true;
+  setTextValue(els.serialToolsDeserialized, result.deserialized || "");
+  setTextValue(els.serialToolsBreakdown, result.breakdown || result.parts_breakdown || "");
+  setTextValue(els.serialToolsSerialized, result.serialized || "");
+  setLine(els.serialToolsStatus, result.message || (ok ? "Converted successfully." : "Conversion failed."), ok ? "ok" : "bad");
+  appendActivity(ok ? "Serial converted locally." : `Serial conversion failed: ${result.message || "unknown error"}`);
+}
+
+function clearSerialTools() {
+  setTextValue(els.serialToolsInput, "");
+  setTextValue(els.serialToolsDeserialized, "");
+  setTextValue(els.serialToolsBreakdown, "");
+  setTextValue(els.serialToolsSerialized, "");
+  setLine(els.serialToolsStatus, "Paste a @U serial or deserialized serial text above.", "warning");
+  appendActivity("Cleared Serial Tools.");
+}
+
+async function validateBasic() {
+  setLine(els.validatorStatus, "Running basic validation locally...", "warning");
+  const result = await window.msbt.validatorBasic(getValue(els.validatorBasicInput));
+  setTextValue(els.validatorOutput, result.output || result.message || pretty(result));
+  setLine(els.validatorStatus, result.summary || result.message || "Basic validation complete.", result.ok ? "ok" : "warning");
+  appendActivity(`Validator basic: ${result.summary || result.message || "complete"}`);
+}
+
+async function validateBulk() {
+  setLine(els.validatorStatus, "Running bulk validation locally...", "warning");
+  const result = await window.msbt.validatorBulk(getValue(els.validatorBulkInput));
+  setTextValue(els.validatorOutput, result.output || result.message || pretty(result));
+  setLine(els.validatorStatus, result.summary || result.message || "Bulk validation complete.", result.ok ? "ok" : "warning");
+  appendActivity(`Validator bulk: ${result.summary || result.message || "complete"}`);
+}
+
+function clearValidator() {
+  setTextValue(els.validatorBasicInput, "");
+  setTextValue(els.validatorBulkInput, "");
+  setTextValue(els.validatorOutput, "");
+  setLine(els.validatorStatus, "Idle", "warning");
+  appendActivity("Cleared Validator.");
+}
+
 async function loadResourceJson(name) {
   const result = await window.msbt.readResourceJson(name);
   if (!result || !result.ok) {
@@ -659,6 +736,16 @@ function wireEvents() {
     backpack_size: getInt(els.backpackSize, 1, 999999, 999),
     bank_size: getInt(els.bankSize, 1, 999999, 1500)
   }, els.boostOutput, 30000));
+
+  els.serialToolsConvertBtn.addEventListener("click", convertSerialTools);
+  els.serialToolsClearBtn.addEventListener("click", clearSerialTools);
+  els.copyDeserializedBtn.addEventListener("click", () => copyText(els.serialToolsDeserialized.value, els.serialToolsStatus, "Deserialized output"));
+  els.copyBreakdownBtn.addEventListener("click", () => copyText(els.serialToolsBreakdown.value, els.serialToolsStatus, "Parts breakdown"));
+  els.copySerializedBtn.addEventListener("click", () => copyText(els.serialToolsSerialized.value, els.serialToolsStatus, "@U serialized output"));
+
+  els.validatorBasicBtn.addEventListener("click", validateBasic);
+  els.validatorBulkBtn.addEventListener("click", validateBulk);
+  els.validatorClearBtn.addEventListener("click", clearValidator);
 
   document.getElementById("updateBtn").addEventListener("click", checkUpdates);
   document.getElementById("downloadBtn").addEventListener("click", () => window.msbt.openExternal(state.latestDownloadUrl));

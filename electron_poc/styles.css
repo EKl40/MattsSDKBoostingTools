@@ -49,6 +49,12 @@ h2 {
   text-transform: uppercase;
 }
 
+h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
 p {
   color: var(--muted);
   font-size: 13px;
@@ -115,6 +121,18 @@ textarea {
   padding: 10px;
 }
 
+textarea.output-box.small {
+  min-height: 86px;
+}
+
+textarea.output-box.medium {
+  min-height: 160px;
+}
+
+textarea.output-box.large {
+  min-height: 280px;
+}
+
 pre {
   min-height: 120px;
   overflow: auto;
@@ -154,6 +172,10 @@ iframe {
 
 .section-heading {
   justify-content: space-between;
+}
+
+.compact-heading {
+  margin: 8px 0 6px;
 }
 
 .tab-bar {
