@@ -88,6 +88,16 @@ ipcMain.handle("app:readResourceJson", async (_event, resourceName) => {
   }
 });
 
+ipcMain.handle("app:readDevSpawnerCatalog", async () => {
+  const catalogPath = path.join(__dirname, "dev_spawner_catalog.json");
+  try {
+    const text = await fs.readFile(catalogPath, "utf8");
+    return { ok: true, data: JSON.parse(text) };
+  } catch (error) {
+    return { ok: false, message: String(error && error.message ? error.message : error) };
+  }
+});
+
 ipcMain.handle("app:serialToolsConvert", async (_event, text) => {
   const code = [
     "import json, sys",

@@ -302,6 +302,14 @@ iframe {
   padding: 5px;
 }
 
+.list-select.compact-list {
+  min-height: 220px;
+}
+
+.dev-spawner-layout {
+  align-items: stretch;
+}
+
 .check-row {
   display: flex;
   align-items: center;

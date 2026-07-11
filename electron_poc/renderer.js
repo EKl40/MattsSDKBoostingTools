@@ -13,6 +13,37 @@ const els = {
   currencyAmount: document.getElementById("currencyAmount"),
   currencyKind: document.getElementById("currencyKind"),
   deliveryOutput: document.getElementById("deliveryOutput"),
+  devActorCategory: document.getElementById("devActorCategory"),
+  devActorClass: document.getElementById("devActorClass"),
+  devActorCount: document.getElementById("devActorCount"),
+  devActorDistance: document.getElementById("devActorDistance"),
+  devActorIncludeNonGenerated: document.getElementById("devActorIncludeNonGenerated"),
+  devActorList: document.getElementById("devActorList"),
+  devActorName: document.getElementById("devActorName"),
+  devActorScale: document.getElementById("devActorScale"),
+  devActorSearch: document.getElementById("devActorSearch"),
+  devActorSpacing: document.getElementById("devActorSpacing"),
+  devActorSummary: document.getElementById("devActorSummary"),
+  devActorTargetLimit: document.getElementById("devActorTargetLimit"),
+  devActorZOffset: document.getElementById("devActorZOffset"),
+  devAiClass: document.getElementById("devAiClass"),
+  devAiCount: document.getElementById("devAiCount"),
+  devAiDirectOnly: document.getElementById("devAiDirectOnly"),
+  devAiIndex: document.getElementById("devAiIndex"),
+  devAiLimit: document.getElementById("devAiLimit"),
+  devAiLoad: document.getElementById("devAiLoad"),
+  devAiName: document.getElementById("devAiName"),
+  devFavoriteList: document.getElementById("devFavoriteList"),
+  devFavoriteSummary: document.getElementById("devFavoriteSummary"),
+  devLogoActor: document.getElementById("devLogoActor"),
+  devLogoDistance: document.getElementById("devLogoDistance"),
+  devLogoHeight: document.getElementById("devLogoHeight"),
+  devLogoIncludeNonGenerated: document.getElementById("devLogoIncludeNonGenerated"),
+  devLogoScale: document.getElementById("devLogoScale"),
+  devLogoSpacing: document.getElementById("devLogoSpacing"),
+  devLogoText: document.getElementById("devLogoText"),
+  devSpawnerOutput: document.getElementById("devSpawnerOutput"),
+  devSpawnerWarning: document.getElementById("devSpawnerWarning"),
   editorFrame: document.getElementById("editorFrame"),
   itempoolCategory: document.getElementById("itempoolCategory"),
   itempoolCount: document.getElementById("itempoolCount"),
@@ -67,6 +98,10 @@ const state = {
   autoInventoryTimer: null,
   bridgeOnline: false,
   confirmedSerial: "",
+  devSpawnerCatalog: null,
+  devSpawnerFilteredActors: [],
+  devSpawnerSelectedActor: "",
+  devSpawnerWarningAccepted: false,
   filteredItemPools: [],
   filteredMaps: [],
   filteredStations: [],
@@ -158,6 +193,12 @@ function getValue(nodeOrId) {
 
 function getInt(nodeOrId, minValue, maxValue, fallback) {
   const parsed = parseInt(getValue(nodeOrId), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(minValue, Math.min(maxValue, parsed));
+}
+
+function getFloat(nodeOrId, minValue, maxValue, fallback) {
+  const parsed = parseFloat(getValue(nodeOrId));
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(minValue, Math.min(maxValue, parsed));
 }
@@ -776,6 +817,241 @@ async function travelToSelectedStation() {
   await runAction("travel_to_station", { travel_station: stationName }, els.travelOutput, 30000);
 }
 
+function devActorDisplayName(actorName) {
+  const catalog = state.devSpawnerCatalog || {};
+  const displayNames = catalog.display_names || {};
+  return String(displayNames[actorName] || "").trim();
+}
+
+function devActorLabel(actorName) {
+  const displayName = devActorDisplayName(actorName);
+  return displayName ? `${displayName} | ${actorName}` : actorName;
+}
+
+function devActorSearchText(actorName) {
+  return `${actorName} ${devActorDisplayName(actorName)}`.toLowerCase();
+}
+
+function devFavoriteTopGroup(actorName) {
+  if (actorName.startsWith("IO_")) return "Interactive Objects";
+  if (actorName.startsWith("Char_")) {
+    const text = devActorSearchText(actorName);
+    if (text.includes("inactive")) return "Inactive Chars";
+    if (text.includes("boss") || text.includes("big encore") || actorName.toLowerCase().endsWith("true")) {
+      return "Active Boss Chars";
+    }
+    return "Characters";
+  }
+  return "Other / Uncategorized";
+}
+
+function populateDevSpawnerCatalog() {
+  const catalog = state.devSpawnerCatalog || {};
+  const categories = catalog.categories || {};
+  const names = Object.keys(categories);
+  els.devActorCategory.innerHTML = "";
+  names.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = `${category} (${(categories[category] || []).length})`;
+    els.devActorCategory.appendChild(option);
+  });
+
+  if (names.includes("Active Boss Chars")) {
+    els.devActorCategory.value = "Active Boss Chars";
+  } else if (names.includes("Characters")) {
+    els.devActorCategory.value = "Characters";
+  } else if (names.length) {
+    els.devActorCategory.value = names[0];
+  }
+
+  renderDevFavorites();
+  renderDevActors();
+}
+
+function renderDevFavorites() {
+  const catalog = state.devSpawnerCatalog || {};
+  const favorites = catalog.favorites || {};
+  const rows = Object.keys(favorites).sort((a, b) => {
+    const groupCompare = devFavoriteTopGroup(a).localeCompare(devFavoriteTopGroup(b));
+    if (groupCompare) return groupCompare;
+    return devActorLabel(a).localeCompare(devActorLabel(b));
+  });
+
+  els.devFavoriteList.innerHTML = "";
+  rows.forEach((actorName) => {
+    const option = document.createElement("option");
+    const group = devFavoriteTopGroup(actorName);
+    const description = String(favorites[actorName] || "").trim();
+    option.value = actorName;
+    option.textContent = `[${group}] ${description ? `${description} | ` : ""}${devActorLabel(actorName)}`;
+    els.devFavoriteList.appendChild(option);
+  });
+
+  setLine(
+    els.devFavoriteSummary,
+    `${rows.length} favorites loaded from SDK Debug Menu source.`,
+    rows.length ? "ok" : "warning"
+  );
+}
+
+function renderDevActors() {
+  const catalog = state.devSpawnerCatalog || {};
+  const categories = catalog.categories || {};
+  const category = getValue(els.devActorCategory) || "All";
+  const query = getValue(els.devActorSearch).toLowerCase();
+  const allNames = categories[category] || [];
+  state.devSpawnerFilteredActors = allNames.filter((actorName) => {
+    return !query || devActorSearchText(actorName).includes(query);
+  });
+
+  const previous = state.devSpawnerSelectedActor;
+  els.devActorList.innerHTML = "";
+  state.devSpawnerFilteredActors.slice(0, 500).forEach((actorName) => {
+    const option = document.createElement("option");
+    option.value = actorName;
+    option.textContent = devActorLabel(actorName);
+    if (actorName === previous) option.selected = true;
+    els.devActorList.appendChild(option);
+  });
+
+  if (!els.devActorList.value && els.devActorList.options.length) {
+    els.devActorList.options[0].selected = true;
+    state.devSpawnerSelectedActor = els.devActorList.value;
+  }
+
+  const capped = state.devSpawnerFilteredActors.length > 500 ? " | showing first 500" : "";
+  setLine(
+    els.devActorSummary,
+    `${state.devSpawnerFilteredActors.length} shown / ${allNames.length} in ${category}${capped}`,
+    state.devSpawnerFilteredActors.length ? "ok" : "warning"
+  );
+}
+
+async function loadDevSpawnerCatalog() {
+  try {
+    const result = await window.msbt.readDevSpawnerCatalog();
+    if (!result || !result.ok) {
+      throw new Error(result && result.message ? result.message : "Dev Spawner catalog failed to load.");
+    }
+    state.devSpawnerCatalog = result.data || {};
+    populateDevSpawnerCatalog();
+    const count = Number(state.devSpawnerCatalog.actor_count || 0);
+    setLine(els.devSpawnerWarning, `Loaded SDK Debug Menu source catalog: ${count} actors.`, "ok");
+  } catch (error) {
+    setLine(els.devSpawnerWarning, `Dev Spawner catalog failed to load: ${error.message || error}`, "bad");
+    setLine(els.devActorSummary, "Actor catalog unavailable.", "bad");
+    setLine(els.devFavoriteSummary, "Favorites unavailable.", "bad");
+  }
+}
+
+function useDevActor(actorName) {
+  const value = String(actorName || "").trim();
+  if (!value) return;
+  state.devSpawnerSelectedActor = value;
+  els.devActorName.value = value;
+  els.devAiName.value = value;
+  setLine(els.devSpawnerWarning, `Selected actor: ${devActorLabel(value)}`, "ok");
+}
+
+function selectDevActorFromList() {
+  useDevActor(getValue(els.devActorList));
+}
+
+function selectDevFavorite() {
+  useDevActor(getValue(els.devFavoriteList));
+}
+
+function devSpawnerConfirm() {
+  if (state.devSpawnerWarningAccepted) return true;
+  const accepted = window.confirm(
+    "Experimental Dev Spawner tools can crash the game, corrupt saves, or affect other players in your lobby.\n\nOnly continue if you understand the risk."
+  );
+  if (accepted) {
+    state.devSpawnerWarningAccepted = true;
+    setLine(els.devSpawnerWarning, "Experimental Dev Spawner actions enabled for this app session.", "warning");
+  }
+  return accepted;
+}
+
+function devSpawnerPayload() {
+  const actorDistance = getFloat(els.devActorDistance, 0, 20000, 350);
+  const actorSpacing = getFloat(els.devActorSpacing, 0, 5000, 125);
+  const actorScale = getFloat(els.devActorScale, 0.01, 20, 1);
+  const actorZOffset = getFloat(els.devActorZOffset, -10000, 10000, 0);
+  return {
+    dev_actor_name: getValue(els.devActorName),
+    dev_actor_class: getValue(els.devActorClass),
+    dev_actor_count: getInt(els.devActorCount, 1, 50, 1),
+    dev_actor_distance: actorDistance,
+    dev_actor_include_non_generated: Boolean(els.devActorIncludeNonGenerated && els.devActorIncludeNonGenerated.checked),
+    dev_actor_scale: actorScale,
+    dev_actor_spacing: actorSpacing,
+    dev_actor_target_limit: getInt(els.devActorTargetLimit, 1, 200, 20),
+    dev_actor_z_offset: actorZOffset,
+    dev_ai_name: getValue(els.devAiName),
+    dev_ai_class: getValue(els.devAiClass),
+    dev_ai_count: getInt(els.devAiCount, 1, 50, 1),
+    dev_ai_cache_index: getInt(els.devAiIndex, 0, 99, 0),
+    dev_ai_cache_limit: getInt(els.devAiLimit, 1, 100, 10),
+    dev_ai_direct_only: Boolean(els.devAiDirectOnly && els.devAiDirectOnly.checked),
+    dev_ai_distance: actorDistance,
+    dev_ai_load: getValue(els.devAiLoad),
+    dev_ai_scale: actorScale,
+    dev_ai_spacing: actorSpacing,
+    dev_ai_z_offset: actorZOffset,
+    dev_logo_actor: getValue(els.devLogoActor),
+    dev_logo_distance: getFloat(els.devLogoDistance, 0, 30000, 2500),
+    dev_logo_height: getFloat(els.devLogoHeight, 0, 10000, 750),
+    dev_logo_include_non_generated: Boolean(els.devLogoIncludeNonGenerated && els.devLogoIncludeNonGenerated.checked),
+    dev_logo_scale: getFloat(els.devLogoScale, 0.01, 20, 0.45),
+    dev_logo_spacing: getFloat(els.devLogoSpacing, 1, 1000, 70),
+    dev_logo_text: getValue(els.devLogoText)
+  };
+}
+
+function devSpawnerResultText(action, result) {
+  const lines = [pretty(result)];
+  const data = result && result.data ? result.data : {};
+  if (data.command) {
+    lines.push("", `Command sent: ${data.command}`);
+  }
+  if (action === "dev_spawner_targets") {
+    lines.push(
+      "",
+      "Target scans report detailed counts in unrealsdk.log.",
+      "If the scan finds 0 results, try another category result, move closer to the object, enable Include Non-Generated, or run Cache Status/Targets after the area fully loads."
+    );
+  }
+  return lines.join("\n");
+}
+
+async function runDevSpawnerAction(action) {
+  if (!devSpawnerConfirm()) {
+    setOutput(els.devSpawnerOutput, "Dev Spawner action cancelled.");
+    return;
+  }
+
+  if (action === "dev_spawner_spawn" || action === "dev_spawner_targets") {
+    if (!getValue(els.devActorName)) {
+      selectDevActorFromList();
+    }
+  }
+  if (action === "dev_spawner_spawnai" || action === "dev_spawner_probeai" || action === "dev_spawner_cache") {
+    if (!getValue(els.devAiName)) {
+      setOutput(els.devSpawnerOutput, "Enter an AI Actor Def / Cache value first.");
+      return;
+    }
+  }
+
+  appendActivity(`Sending ${action}...`);
+  setOutput(els.devSpawnerOutput, `Sending ${action}...`);
+  const result = await bridgeAction(action, devSpawnerPayload(), 45000);
+  setOutput(els.devSpawnerOutput, devSpawnerResultText(action, result));
+  setLine(els.devSpawnerWarning, resultMessage(result), actionSucceeded(result) ? "ok" : "bad");
+  appendActivity(`${action}: ${resultMessage(result)}`);
+}
+
 function switchTab(tabId) {
   document.querySelectorAll(".tab-bar [data-tab]").forEach((button) => {
     button.classList.toggle("active", button.dataset.tab === tabId);
@@ -864,6 +1140,20 @@ function wireEvents() {
   });
   document.getElementById("spawnItempoolBtn").addEventListener("click", spawnItemPool);
 
+  els.devActorCategory.addEventListener("change", renderDevActors);
+  els.devActorSearch.addEventListener("input", renderDevActors);
+  els.devActorList.addEventListener("change", selectDevActorFromList);
+  els.devFavoriteList.addEventListener("change", selectDevFavorite);
+  document.getElementById("devUseActorBtn").addEventListener("click", selectDevActorFromList);
+  document.getElementById("devUseFavoriteBtn").addEventListener("click", selectDevFavorite);
+  document.getElementById("devSpawnFavoriteBtn").addEventListener("click", () => {
+    selectDevFavorite();
+    runDevSpawnerAction("dev_spawner_spawnai");
+  });
+  document.querySelectorAll("[data-dev-spawner-action]").forEach((button) => {
+    button.addEventListener("click", () => runDevSpawnerAction(button.dataset.devSpawnerAction));
+  });
+
   els.travelMapSearch.addEventListener("input", renderMaps);
   els.travelMapList.addEventListener("change", () => {
     state.selectedMap = getValue(els.travelMapList);
@@ -889,7 +1179,7 @@ function wireEvents() {
 
 async function init() {
   wireEvents();
-  await Promise.all([loadItemPools(), loadTravelResources()]);
+  await Promise.all([loadItemPools(), loadTravelResources(), loadDevSpawnerCatalog()]);
   await bridgeStatus();
   await checkUpdates();
 }
