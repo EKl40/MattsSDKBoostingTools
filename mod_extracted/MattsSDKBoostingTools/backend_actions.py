@@ -5,6 +5,7 @@ external-bridge state needed by headless bridge actions.
 """
 from __future__ import annotations
 
+import argparse
 import importlib
 import importlib.util
 import re
@@ -147,6 +148,72 @@ def _run_actor_script_deployer_command(command_line: str) -> tuple[bool, str]:
         return False, f"ActorScriptDeployer command object {attr_name!r} is unavailable."
     handle(command_line, len(command_name))
     return True, "ActorScriptDeployer command object"
+
+
+def _actor_script_deployer_command(attr_name: str) -> tuple[Any | None, str]:
+    try:
+        asd = importlib.import_module("ActorScriptDeployer")
+    except Exception as exc:
+        return None, f"ActorScriptDeployer import failed: {exc!r}"
+    command_obj = getattr(asd, attr_name, None)
+    if not callable(command_obj):
+        return None, f"ActorScriptDeployer command object {attr_name!r} is unavailable."
+    return command_obj, "ActorScriptDeployer direct command object"
+
+
+def _run_actor_script_deployer_spawnai_like_debug_menu(
+    *,
+    name: str,
+    count: int,
+    distance: float,
+    spacing: float,
+    scale: float,
+    z_offset: float,
+    extra_loads: list[str],
+    direct_only: bool,
+) -> tuple[bool, str]:
+    """Mirror SDK_Debug_Menu's AI spawn flow.
+
+    The source menu calls _cmd_spawnai once, with count=1, then uses _cmd_spawn for
+    extra copies.  Keeping the same call shape makes MSBT's bridge behavior easier
+    to compare against the working debug-menu source.
+    """
+    spawnai_fn, message = _actor_script_deployer_command("_cmd_spawnai")
+    if spawnai_fn is None:
+        return False, message
+
+    spawnai_fn(
+        argparse.Namespace(
+            name=name,
+            distance=distance,
+            count=1,
+            spacing=spacing,
+            scale=scale,
+            z_offset=z_offset,
+            zoffset=z_offset,
+            load=list(extra_loads),
+            direct_only=direct_only,
+        )
+    )
+
+    if count > 1:
+        spawn_fn, spawn_message = _actor_script_deployer_command("_cmd_spawn")
+        if spawn_fn is None:
+            return True, f"{message}; first actor requested; extra copies skipped: {spawn_message}"
+        for idx in range(1, count):
+            spawn_fn(
+                argparse.Namespace(
+                    name=name,
+                    distance=distance + (spacing * idx),
+                    scale=scale,
+                    z_offset=z_offset,
+                    zoffset=z_offset,
+                    load=list(extra_loads),
+                    direct_only=direct_only,
+                )
+            )
+
+    return True, f"{message}; SDK_Debug_Menu-style ASD_spawnai flow"
 
 
 def _module_available(name: str) -> bool:
@@ -709,6 +776,7 @@ def spawn_itempool(pool_name: object, count: object, level: object) -> dict[str,
 
 def run_dev_spawner_action(action: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
     payload = dict(payload or {})
+    direct_dev_spawner_result: tuple[bool, str] | None = None
     try:
         if action == "dev_spawner_status":
             cmd = "ASD_status"
@@ -792,12 +860,14 @@ def run_dev_spawner_action(action: str, payload: dict[str, Any] | None = None) -
             name = _dev_spawner_token(payload.get("dev_ai_name"), "AI actor-def name", required=True)
             command = "ASD_spawnai" if action == "dev_spawner_spawnai" else "ASD_probeai"
             parts = [command, name]
+            extra_loads: list[str] = []
             if action == "dev_spawner_spawnai":
                 count = _clamp_int(payload.get("dev_ai_count") or 1, 1, 50)
                 distance = _clamp_float(payload.get("dev_ai_distance"), 0.0, 20000.0, 350.0)
                 spacing = _clamp_float(payload.get("dev_ai_spacing"), 0.0, 5000.0, 125.0)
                 scale = _clamp_float(payload.get("dev_ai_scale"), 0.01, 20.0, 1.0)
                 z_offset = _clamp_float(payload.get("dev_ai_z_offset"), -10000.0, 10000.0, 0.0)
+                direct_only = _dev_spawner_bool(payload.get("dev_ai_direct_only"))
                 parts.extend(
                     (
                         "--count",
@@ -812,12 +882,24 @@ def run_dev_spawner_action(action: str, payload: dict[str, Any] | None = None) -
                         f"{z_offset:g}",
                     )
                 )
-                if _dev_spawner_bool(payload.get("dev_ai_direct_only")):
+                if direct_only:
                     parts.append("--direct-only")
             load_path = _dev_spawner_token(payload.get("dev_ai_load"), "AI load path")
             if load_path:
                 parts.extend(("--load", load_path))
+                extra_loads.append(load_path)
             cmd = " ".join(parts)
+            if action == "dev_spawner_spawnai":
+                direct_dev_spawner_result = _run_actor_script_deployer_spawnai_like_debug_menu(
+                    name=name,
+                    count=count,
+                    distance=distance,
+                    spacing=spacing,
+                    scale=scale,
+                    z_offset=z_offset,
+                    extra_loads=extra_loads,
+                    direct_only=direct_only,
+                )
         elif action == "dev_spawner_cache":
             name = _dev_spawner_token(payload.get("dev_ai_name"), "AI actor-def/cache name", required=True)
             class_name = _dev_spawner_token(payload.get("dev_ai_class"), "AI source class")
@@ -857,7 +939,10 @@ def run_dev_spawner_action(action: str, payload: dict[str, Any] | None = None) -
         else:
             return {"ok": False, "message": f"Unsupported dev spawner action: {action}"}
 
-        direct_ok, direct_message = _run_actor_script_deployer_command(cmd)
+        if direct_dev_spawner_result is not None:
+            direct_ok, direct_message = direct_dev_spawner_result
+        else:
+            direct_ok, direct_message = _run_actor_script_deployer_command(cmd)
         if direct_ok:
             return {
                 "ok": True,
