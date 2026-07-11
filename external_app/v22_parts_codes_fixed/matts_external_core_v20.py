@@ -1,6 +1,6 @@
 
 from __future__ import annotations
-import json, threading, webbrowser
+import hashlib, json, threading, webbrowser
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -8,6 +8,9 @@ from urllib import request, error
 from external_app_paths import BASE_DIR, RESOURCE_DIR
 
 BRIDGE = "http://127.0.0.1:49774"
+RELEASES_URL = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases"
+BETA_ZIP_URL = "https://github.com/funkyoushift/MattsSDKBoostingTools/raw/main/releases/MSBT_External_Beta.zip"
+LATEST_MANIFEST_URL = "https://raw.githubusercontent.com/funkyoushift/MattsSDKBoostingTools/main/releases/latest.json"
 SUPPORT_LINKS = {
     "Support on Ko-fi": "https://ko-fi.com/mattmab",
     "FunkYouSHiFT Twitch": "https://www.twitch.tv/FunkYouSHiFT",
@@ -23,6 +26,7 @@ LOCAL_RESOURCE_FILES = {
     "legit_rules": "legit_rules_flat.json",
 }
 SETTINGS_FILE = RESOURCE_DIR / "user_external_app_settings.json"
+VERSION_INFO_FILE = RESOURCE_DIR / "version_info.json"
 def load_local_json(filename):
     with open(RESOURCE_DIR / filename, "r", encoding="utf-8") as f: return json.load(f)
 ACCENT_COLORS={"cyan":"#00d4ff","gold":"#ffcc33","green":"#43d17a","purple":"#b36bff","pink":"#ff5db7","red":"#ff5b5b"}
@@ -54,11 +58,15 @@ class App(tk.Tk):
         self.geometry('1920x980'); self.minsize(1400,820); self.configure(bg='#090d17')
         self.app_settings=self._load_app_settings()
         self.app_opacity_var=tk.IntVar(value=self._initial_opacity_percent())
+        self.version_info=self._load_version_info()
+        self.update_url=str(self.version_info.get('release_url') or RELEASES_URL)
+        self.update_status_var=tk.StringVar(value=self._local_version_label())
+        self.update_open_button=None
         self.field_vars={}; self.widgets={}; self.resources={}; self.legit_roots=[]; self.player_options=[]; self.current_layout=None
         self.status_var=tk.StringVar(value='Not connected'); self.log_var=tk.StringVar(value="V20 GZO import build: local Matt resources + bridge for live actions.")
         self.output_text=None; self._style(); self._header(); self.notebook=ttk.Notebook(self); self.notebook.pack(fill='both',expand=True,padx=6,pady=(0,6))
         self._set_app_opacity(self.app_opacity_var.get(), save=False)
-        self.after(200,self.load_layout); self.after(1600,self.poll_status)
+        self.after(200,self.load_layout); self.after(1600,self.poll_status); self.after(4200,self.check_for_updates)
     def _load_app_settings(self):
         try:
             if SETTINGS_FILE.exists():
@@ -73,6 +81,120 @@ class App(tk.Tk):
             SETTINGS_FILE.write_text(json.dumps(self.app_settings,indent=2,sort_keys=True),encoding='utf-8')
         except Exception:
             pass
+    def _load_version_info(self):
+        defaults={
+            "package_version":"dev",
+            "app_version":"dev",
+            "sdkmod_version":"dev",
+            "git_commit":"",
+            "release_url":RELEASES_URL,
+            "download_url":BETA_ZIP_URL,
+            "latest_manifest_url":LATEST_MANIFEST_URL,
+            "sdk_required":"oak2-mod-manager v0.3",
+        }
+        try:
+            if VERSION_INFO_FILE.exists():
+                data=json.loads(VERSION_INFO_FILE.read_text(encoding='utf-8') or '{}')
+                if isinstance(data,dict):
+                    defaults.update(data)
+        except Exception:
+            pass
+        return defaults
+    def _local_version_label(self):
+        version=str(self.version_info.get('package_version') or 'dev')
+        commit=str(self.version_info.get('git_commit') or '').strip()
+        suffix=f" ({commit[:7]})" if commit and commit.lower()!='dev' else ''
+        return f"Installed beta: {version}{suffix}"
+    def _candidate_sdkmod_paths(self):
+        names=("MattsSDKBoostingTools.sdkmod","MattsSDKBoostingTools.bl4sdkmod")
+        roots=[BASE_DIR, BASE_DIR.parent, BASE_DIR.parent.parent]
+        seen=set()
+        for root in roots:
+            for name in names:
+                path=(root / name).resolve()
+                key=str(path).lower()
+                if key not in seen:
+                    seen.add(key)
+                    yield path
+    def _file_sha256(self,path):
+        h=hashlib.sha256()
+        with open(path,'rb') as f:
+            for chunk in iter(lambda:f.read(1024*1024),b''):
+                h.update(chunk)
+        return h.hexdigest()
+    def _installed_sdkmod_sha256(self):
+        for path in self._candidate_sdkmod_paths():
+            try:
+                if path.exists() and path.is_file():
+                    return self._file_sha256(path)
+            except Exception:
+                continue
+        return ''
+    def _version_changed(self, local, remote, key):
+        rv=str((remote or {}).get(key) or '').strip()
+        lv=str((local or {}).get(key) or '').strip()
+        return bool(rv and lv and rv != lv)
+    def _summarize_update_diff(self, remote):
+        changed=[]
+        if self._version_changed(self.version_info, remote, 'package_version'):
+            changed.append('package')
+        if self._version_changed(self.version_info, remote, 'app_version'):
+            changed.append('app')
+        if self._version_changed(self.version_info, remote, 'sdkmod_version'):
+            changed.append('SDK mod')
+        if self._version_changed(self.version_info, remote, 'resources_version'):
+            changed.append('resources')
+        remote_sdk=str((remote or {}).get('sdkmod_sha256') or '').strip().lower()
+        local_sdk=str(self.version_info.get('sdkmod_sha256') or '').strip().lower()
+        installed_sdk=self._installed_sdkmod_sha256().lower()
+        if remote_sdk and local_sdk and remote_sdk != local_sdk and 'SDK mod' not in changed:
+            changed.append('SDK mod')
+        if remote_sdk and installed_sdk and remote_sdk != installed_sdk and 'installed SDK mod' not in changed:
+            changed.append('installed SDK mod')
+        if self._version_changed(self.version_info, remote, 'git_commit') and not changed:
+            changed.append('build')
+        return changed
+    def _apply_update_status(self, text, color=None, url=None):
+        self.update_status_var.set(text)
+        if url:
+            self.update_url=str(url)
+        if color and hasattr(self,'update_status_label'):
+            self.update_status_label.configure(fg=color)
+    def check_for_updates(self, force=False):
+        def work():
+            try:
+                url=str(self.version_info.get('latest_manifest_url') or LATEST_MANIFEST_URL)
+                req=request.Request(url,headers={'User-Agent':'MSBT-External-App'})
+                with request.urlopen(req,timeout=5) as resp:
+                    remote=json.loads(resp.read().decode('utf-8',errors='replace') or '{}')
+                if not isinstance(remote,dict):
+                    raise ValueError('latest manifest was not a JSON object')
+                changed=self._summarize_update_diff(remote)
+                download=str(remote.get('download_url') or remote.get('release_url') or BETA_ZIP_URL)
+                remote_version=str(remote.get('package_version') or remote.get('git_commit') or 'new beta')
+                if changed:
+                    msg=f"Update available: {remote_version} ({', '.join(changed)})"
+                    self.after(0,lambda m=msg,u=download:self._apply_update_status(m,'#ffd447',u))
+                    if force:
+                        self.after(0,lambda:self.log('Update available. Open Download for the latest beta package.'))
+                else:
+                    msg='Installed beta is current.'
+                    self.after(0,lambda m=msg,u=download:self._apply_update_status(m,'#21e05f',u))
+                    if force:
+                        self.after(0,lambda:self.log('Installed beta is current.'))
+            except Exception as exc:
+                msg=f'Update check unavailable: {exc}'
+                self.after(0,lambda m=msg:self._apply_update_status(m,'#9fb3d9'))
+                if force:
+                    self.after(0,lambda m=msg:self.log(m))
+        threading.Thread(target=work,daemon=True).start()
+    def open_update_download(self):
+        url=str(getattr(self,'update_url','') or self.version_info.get('download_url') or BETA_ZIP_URL)
+        try:
+            webbrowser.open(url,new=2)
+            self.log(f'Opened update download: {url}')
+        except Exception as exc:
+            self.log(f'Could not open update download: {exc!r}')
     def _initial_opacity_percent(self):
         try:
             raw=int(float(self.app_settings.get('app_opacity_percent',100)))
@@ -121,6 +243,12 @@ class App(tk.Tk):
         link_row=tk.Frame(left,bg='#090d17'); link_row.pack(anchor='w',pady=(3,0))
         for label,url in SUPPORT_LINKS.items():
             tk.Button(link_row,text=label,command=lambda u=url:self._open_support_link(u),bg='#172033',fg='#ffd447',relief='flat',padx=8,pady=3,font=('Segoe UI',8,'bold')).pack(side='left',padx=(0,6))
+        update_row=tk.Frame(left,bg='#090d17'); update_row.pack(anchor='w',fill='x',pady=(3,0))
+        self.update_status_label=tk.Label(update_row,textvariable=self.update_status_var,fg='#9fb3d9',bg='#090d17',font=('Segoe UI',8),anchor='w')
+        self.update_status_label.pack(side='left',padx=(0,8))
+        tk.Button(update_row,text='Check Updates',command=lambda:self.check_for_updates(force=True),bg='#172033',fg='#00d4ff',relief='flat',padx=8,pady=3,font=('Segoe UI',8,'bold')).pack(side='left',padx=(0,6))
+        self.update_open_button=tk.Button(update_row,text='Open Download',command=self.open_update_download,bg='#172033',fg='#ffd447',relief='flat',padx=8,pady=3,font=('Segoe UI',8,'bold'))
+        self.update_open_button.pack(side='left')
         tk.Button(top,text='Reconnect',command=self.load_layout,bg='#172033',fg='#f1f5ff',relief='flat',padx=14,pady=6).pack(side='right',padx=(6,0))
         tk.Button(top,text='Status',command=self.poll_status,bg='#172033',fg='#f1f5ff',relief='flat',padx=14,pady=6).pack(side='right')
         opacity=tk.Frame(top,bg='#090d17'); opacity.pack(side='right',padx=(10,4))

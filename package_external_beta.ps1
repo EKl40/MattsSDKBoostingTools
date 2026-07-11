@@ -11,6 +11,9 @@ $MattEditorAdapter = Join-Path $AppSource "matt_editor_adapter.js"
 $SdkMod = Join-Path $RepoRoot "MattsSDKBoostingTools.sdkmod"
 $SdkBuildScript = Join-Path $RepoRoot "build_sdkmod.ps1"
 $ZipPath = Join-Path $RepoRoot "MSBT_External_Beta.zip"
+$ReleasesFolder = Join-Path $RepoRoot "releases"
+$ReleaseZipPath = Join-Path $ReleasesFolder "MSBT_External_Beta.zip"
+$LatestManifestPath = Join-Path $ReleasesFolder "latest.json"
 
 function Assert-UnderRepo {
     param([string]$Path)
@@ -47,6 +50,7 @@ if (-not (Test-Path $MattEditorAdapter)) {
 
 Assert-UnderRepo $PackageRoot
 Assert-UnderRepo $ZipPath
+Assert-UnderRepo $ReleasesFolder
 
 Remove-Item -Recurse -Force $PackageRoot -ErrorAction SilentlyContinue
 Remove-Item -Force $ZipPath -ErrorAction SilentlyContinue
@@ -61,8 +65,50 @@ Copy-Item -Force $MattEditorAdapter (Join-Path $ExternalFolder "matt_editor_adap
 Copy-Item -Force $SdkMod (Join-Path $PackageRoot "MattsSDKBoostingTools.sdkmod")
 Copy-Item -Force (Join-Path $RepoRoot "Launch_MSBT_External_App.bat") (Join-Path $PackageRoot "Launch_MSBT_External_App.bat")
 
+$GitCommit = ""
+$ShortCommit = ""
+try {
+    $GitCommit = (& git -C $RepoRoot rev-parse HEAD).Trim()
+    $ShortCommit = (& git -C $RepoRoot rev-parse --short HEAD).Trim()
+} catch {
+    $GitCommit = ""
+    $ShortCommit = ""
+}
+$BuiltAtUtc = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+$DateVersion = [DateTime]::UtcNow.ToString("yyyy.MM.dd.HHmm")
+$PackageVersion = if ($ShortCommit) { "beta-$ShortCommit" } else { "beta-$DateVersion" }
+$SdkHash = (Get-FileHash -Algorithm SHA256 $SdkMod).Hash.ToLowerInvariant()
+$ExePath = Join-Path $ExternalFolder "MattsBoostingToolsExternal.exe"
+$ExeHash = (Get-FileHash -Algorithm SHA256 $ExePath).Hash.ToLowerInvariant()
+$UiLayoutPath = Join-Path $ExternalFolder "resources\ui_layout.json"
+$ResourcesHash = if (Test-Path $UiLayoutPath) { (Get-FileHash -Algorithm SHA256 $UiLayoutPath).Hash.ToLowerInvariant() } else { "" }
+$DownloadUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/raw/main/releases/MSBT_External_Beta.zip"
+$LatestManifestUrl = "https://raw.githubusercontent.com/funkyoushift/MattsSDKBoostingTools/main/releases/latest.json"
+$ReleaseUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases"
+
+$VersionInfo = [ordered]@{
+    package_version = $PackageVersion
+    app_version = $PackageVersion
+    sdkmod_version = $PackageVersion
+    resources_version = $PackageVersion
+    git_commit = $GitCommit
+    built_at_utc = $BuiltAtUtc
+    sdk_required = "oak2-mod-manager v0.3"
+    sdk_required_url = "https://github.com/bl-sdk/oak2-mod-manager/releases/tag/v0.3"
+    download_url = $DownloadUrl
+    release_url = $ReleaseUrl
+    latest_manifest_url = $LatestManifestUrl
+    external_exe_sha256 = $ExeHash
+    sdkmod_sha256 = $SdkHash
+    ui_layout_sha256 = $ResourcesHash
+}
+$VersionInfo | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 (Join-Path $ExternalFolder "resources\version_info.json")
+
 @"
 Matt's SDK Boosting Tools external beta
+
+Package version:
+$PackageVersion
 
 Requires SDK 03 / oak2-mod-manager v0.3:
 https://github.com/bl-sdk/oak2-mod-manager/releases/tag/v0.3
@@ -85,7 +131,33 @@ if ($LASTEXITCODE -ne 0) {
     throw "Failed to create beta zip: $ZipPath"
 }
 
+New-Item -ItemType Directory -Force $ReleasesFolder | Out-Null
+Copy-Item -Force $ZipPath $ReleaseZipPath
+$ZipHash = (Get-FileHash -Algorithm SHA256 $ReleaseZipPath).Hash.ToLowerInvariant()
+$LatestManifest = [ordered]@{
+    package_version = $PackageVersion
+    app_version = $PackageVersion
+    sdkmod_version = $PackageVersion
+    resources_version = $PackageVersion
+    git_commit = $GitCommit
+    built_at_utc = $BuiltAtUtc
+    sdk_required = "oak2-mod-manager v0.3"
+    sdk_required_url = "https://github.com/bl-sdk/oak2-mod-manager/releases/tag/v0.3"
+    download_url = $DownloadUrl
+    release_url = $ReleaseUrl
+    latest_manifest_url = $LatestManifestUrl
+    external_exe_sha256 = $ExeHash
+    sdkmod_sha256 = $SdkHash
+    ui_layout_sha256 = $ResourcesHash
+    beta_zip_sha256 = $ZipHash
+}
+$LatestManifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 $LatestManifestPath
+
 Write-Host "Packaged beta folder:"
 Write-Host $PackageRoot
 Write-Host "Packaged beta zip:"
 Write-Host $ZipPath
+Write-Host "Release beta zip:"
+Write-Host $ReleaseZipPath
+Write-Host "Latest update manifest:"
+Write-Host $LatestManifestPath
