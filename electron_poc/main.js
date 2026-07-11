@@ -16,6 +16,13 @@ const MATT_EDITOR_INDEX = path.join(
   "index.html"
 );
 const EXTERNAL_APP_DIR = path.join(REPO_ROOT, "external_app", "v22_parts_codes_fixed");
+const RESOURCE_DIR = path.join(EXTERNAL_APP_DIR, "resources");
+const ALLOWED_RESOURCE_FILES = new Set([
+  "item_pools.json",
+  "travelmaps_flat.json",
+  "travelstations.json",
+  "version_info.json"
+]);
 const LOCAL_VENV_PYTHON = path.join(REPO_ROOT, ".venv", "Scripts", "python.exe");
 const MATT_HOST_START_TIMEOUT_MS = 12000;
 
@@ -67,6 +74,19 @@ async function requestBridge({ method = "GET", path: route = "/status", payload 
 }
 
 ipcMain.handle("bridge:request", async (_event, args) => requestBridge(args || {}));
+
+ipcMain.handle("app:readResourceJson", async (_event, resourceName) => {
+  const name = path.basename(String(resourceName || ""));
+  if (!ALLOWED_RESOURCE_FILES.has(name)) {
+    return { ok: false, message: `Resource is not allowlisted: ${name}` };
+  }
+  try {
+    const text = await fs.readFile(path.join(RESOURCE_DIR, name), "utf8");
+    return { ok: true, name, data: JSON.parse(text) };
+  } catch (error) {
+    return { ok: false, name, message: String(error && error.message ? error.message : error) };
+  }
+});
 
 function pythonCandidates() {
   const out = [];

@@ -9,6 +9,7 @@ The first goals are:
 3. Can Electron check the current GitHub release manifest?
 4. Can Electron render the vendored Mattmab editor assets inside the app shell through the local Matt editor host?
 5. Can Electron send one confirmed `@U` serial through the existing bridge actions?
+6. Can Electron exercise the first batch of core MSBT tabs without changing the Tkinter beta app?
 
 ## Run
 
@@ -38,19 +39,25 @@ npm.cmd rebuild electron
 - `POST /action` with `give_serial_nonhost`
 - GitHub release manifest check through `releases/latest.json`
 - local Matt editor iframe loading from the hosted `matt_editor_host.py` URL, which injects `matt_editor_adapter.js`
+- Boosting bridge actions for target, serial delivery, XP, currency, inventory, quick max, chest/bank/debug helpers
+- local item pool browser backed by `resources/item_pools.json`, with live spawn through `spawn_itempool`
+- local map/station browser backed by `resources/travelmaps_flat.json` and `resources/travelstations.json`, with live travel through the bridge
+- local activity/status view
 
 ## Manual Test Flow
 
 1. Launch BL4 with the current MSBT SDK mod.
 2. Run `npm.cmd start`.
-3. Confirm Bridge Status shows online players.
+3. Confirm Boosting shows online players.
 4. Pick a Target Player and click Set Target, or click Use First Player.
 5. Click Check Updates and confirm it reads GitHub release metadata.
 6. Click Load Editor and confirm the Matt editor appears inside Electron with the MSBT Delivery panel injected.
 7. Build or load an item in the editor.
 8. Choose a target if needed, then click Send. If exactly one serial is visible, MSBT auto-detects and confirms it.
 9. Use Detect Serial From Editor / Confirm Serial only when you want to verify manually or choose between multiple detected serials.
-10. Test delivery only with a small known-safe serial and a selected target.
+10. Open Item Pool Spawning and confirm the local list filters.
+11. Open Map Travel and confirm maps and stations load from local resources.
+12. Test live delivery/spawn/travel only with known-safe values.
 
 ## What This POC Does Not Do Yet
 
@@ -59,4 +66,5 @@ npm.cmd rebuild electron
 - It does not auto-update; it only reports update availability.
 - It still starts the existing Python Matt editor host from Electron for this milestone. A future Electron rebuild can port that host/API layer to Node.
 - It does not yet provide the full MSBT tab set.
+- It does not change the Tkinter beta app.
 - It does not change the SDK mod or bridge.

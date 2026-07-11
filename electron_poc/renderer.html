@@ -10,7 +10,7 @@
   <header class="app-header">
     <div>
       <h1>Matt's SDK Boosting Tools</h1>
-      <p>Electron milestone shell: bridge status, target selection, update check, and embedded Matt editor testing.</p>
+      <p>Electron milestone shell. Tkinter remains the beta app while these tabs catch up.</p>
     </div>
     <div class="header-actions">
       <button id="statusBtn">Refresh Status</button>
@@ -19,62 +19,277 @@
     </div>
   </header>
 
-  <main class="shell">
-    <section class="panel status-panel">
-      <h2>Bridge Status</h2>
-      <div id="bridgeSummary" class="status-line warning">Checking bridge...</div>
-      <label for="targetSelect">Target Player</label>
-      <select id="targetSelect">
-        <option value="">No players loaded</option>
-      </select>
-      <div class="button-row wrap">
-        <button id="setTargetBtn">Set Target</button>
-        <button id="firstTargetBtn">Use First Player</button>
+  <nav class="tab-bar" aria-label="Electron test tabs">
+    <button class="active" data-tab="boosting">Boosting</button>
+    <button data-tab="matt-editor">Matt Editor</button>
+    <button data-tab="item-pool">Item Pool Spawning</button>
+    <button data-tab="map-travel">Map Travel</button>
+    <button data-tab="activity">Activity Log</button>
+    <button data-tab="updates">Updates</button>
+  </nav>
+
+  <main class="tab-shell">
+    <section id="tab-boosting" class="tab-panel active">
+      <div class="grid two">
+        <section class="panel cyan">
+          <h2>Target Player</h2>
+          <p>Select which player the selected-player buttons should target.</p>
+          <div id="bridgeSummary" class="status-line warning">Checking bridge...</div>
+          <label for="targetSelect">Target Player</label>
+          <select id="targetSelect">
+            <option value="">No players loaded</option>
+          </select>
+          <div class="button-row wrap">
+            <button id="setTargetBtn">Set Target</button>
+            <button id="firstTargetBtn">Use First Player</button>
+            <button id="kickTargetBtn" class="danger">Kick Player</button>
+          </div>
+          <div id="targetSummary" class="status-line">Selected target: none</div>
+        </section>
+
+        <section class="panel gold">
+          <h2>Quick Max</h2>
+          <div class="button-grid">
+            <button data-action="max_all">Max All</button>
+            <button data-action="max_currency">Max Cash</button>
+            <button data-action="max_eridium">Max Eridium</button>
+            <button data-action="max_player_level">Max Player 60</button>
+            <button data-action="max_spec_level">Max Spec 701</button>
+            <button data-action="max_sdu">Max SDU</button>
+          </div>
+        </section>
       </div>
-      <div id="targetSummary" class="status-line">Selected target: none</div>
-      <pre id="statusOutput">Click Refresh Status to check the SDK bridge.</pre>
+
+      <div class="grid two">
+        <section class="panel purple">
+          <h2>Serial Rewards</h2>
+          <p>Paste one or more serials. Delivery still uses the SDK bridge and the selected target.</p>
+          <label for="boostSerialText">Serial Input</label>
+          <textarea id="boostSerialText" spellcheck="false" placeholder="@U..."></textarea>
+          <div class="inline-fields">
+            <label>
+              Override Level
+              <select id="boostSerialOverride">
+                <option value="false">false</option>
+                <option value="true">true</option>
+              </select>
+            </label>
+            <label>
+              Level
+              <input id="boostSerialLevel" type="number" min="1" max="60" value="60">
+            </label>
+          </div>
+          <div class="button-row wrap">
+            <button data-boost-serial-mode="selected">Give Selected</button>
+            <button data-boost-serial-mode="all">Give All</button>
+            <button data-boost-serial-mode="nonhost">Give Non-Host</button>
+            <button id="boostClearSerialsBtn" class="danger">Clear Serials</button>
+          </div>
+        </section>
+
+        <section class="panel cyan">
+          <h2>Experience</h2>
+          <div class="inline-fields">
+            <label>
+              XP Track
+              <select id="xpTrack">
+                <option value="player">player</option>
+                <option value="specialization">specialization</option>
+                <option value="vaultcard_xp_1">vaultcard_xp_1</option>
+                <option value="vaultcard_xp_2">vaultcard_xp_2</option>
+                <option value="vaultcard_xp_3">vaultcard_xp_3</option>
+              </select>
+            </label>
+            <label>
+              Target Level
+              <input id="xpLevel" type="number" min="1" max="9999999" value="60">
+            </label>
+          </div>
+          <div class="button-row wrap">
+            <button id="setLevelBtn">Set Level</button>
+            <button data-action="max_player_level">Max Player Level</button>
+            <button data-action="max_spec_level">Set Spec 701</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid three">
+        <section class="panel green">
+          <h2>Currency</h2>
+          <label for="currencyKind">Currency Kind</label>
+          <select id="currencyKind">
+            <option value="cash">cash</option>
+            <option value="eridium">eridium</option>
+            <option value="vaultcard1">vaultcard1</option>
+            <option value="vaultcard2">vaultcard2</option>
+            <option value="vaultcard3">vaultcard3</option>
+          </select>
+          <label for="currencyAmount">Currency Amount</label>
+          <input id="currencyAmount" type="number" value="1000000">
+          <div class="button-row wrap">
+            <button id="giveCurrencyBtn">Give Currency</button>
+            <button data-action="max_currency">Max Currency</button>
+            <button data-action="max_eridium">Max Eridium</button>
+          </div>
+        </section>
+
+        <section class="panel cyan">
+          <h2>Backpack / Bank Size</h2>
+          <label for="backpackSize">Backpack Size</label>
+          <input id="backpackSize" type="number" min="1" value="999">
+          <label for="bankSize">Bank Size</label>
+          <input id="bankSize" type="number" min="1" value="1500">
+          <div class="button-row wrap">
+            <button id="setInventorySelectedBtn">Set Selected</button>
+            <button id="setInventoryAllBtn">Apply to All Party</button>
+          </div>
+        </section>
+
+        <section class="panel pink">
+          <h2>Cheats / Chests / Shinies</h2>
+          <div class="button-grid">
+            <button data-action="open_bank">Open Bank Anywhere</button>
+            <button data-action="toggle_debug_cam">Toggle Debug Cam</button>
+            <button data-action="teleport_debug_cam">Teleport to Debug Cam</button>
+            <button data-action="open_golden_chest">Open Golden Chest</button>
+            <button data-action="close_golden_chest">Close Golden Chest</button>
+            <button data-action="drop_all_shinies">Drop All Shinies</button>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <h2>Boosting Result</h2>
+        <pre id="boostOutput">No boosting action sent yet.</pre>
+      </section>
     </section>
 
-    <section class="panel update-panel">
-      <h2>Update Check</h2>
-      <div id="updateSummary" class="status-line">No update check yet.</div>
-      <div class="button-row wrap">
-        <button id="downloadBtn">Open Latest Download</button>
+    <section id="tab-matt-editor" class="tab-panel">
+      <div class="grid sidecar">
+        <section class="panel gold">
+          <h2>Item Delivery</h2>
+          <p>Send can auto-detect one generated @U serial from the embedded editor. Use Detect/Confirm when you want to verify or choose between multiple serials.</p>
+          <div class="button-row wrap">
+            <button id="detectSerialBtn">Detect Serial From Editor</button>
+            <button id="confirmSerialBtn">Confirm Serial</button>
+            <button id="copySerialBtn">Copy Confirmed</button>
+          </div>
+          <label for="serialInput">Serial to Send</label>
+          <textarea id="serialInput" spellcheck="false" placeholder="@U..."></textarea>
+          <div id="serialSummary" class="status-line warning">No confirmed serial yet.</div>
+          <div class="button-row wrap">
+            <button data-editor-serial-mode="selected">Give Selected</button>
+            <button data-editor-serial-mode="all">Give All</button>
+            <button data-editor-serial-mode="nonhost">Give Non-Host</button>
+          </div>
+          <pre id="deliveryOutput">No delivery request sent yet.</pre>
+        </section>
+
+        <section class="panel editor-panel purple">
+          <div class="section-heading">
+            <div>
+              <h2>Embedded Matt Editor</h2>
+              <p>Build inside the editor, choose a target, then send from the MSBT panel or the shell controls.</p>
+            </div>
+            <div class="button-row">
+              <button id="loadEditorBtn">Load Editor</button>
+              <button id="reloadEditorBtn">Reload</button>
+            </div>
+          </div>
+          <iframe id="editorFrame" title="Matt editor local frame"></iframe>
+        </section>
       </div>
-      <pre id="updateOutput">Checks GitHub Releases metadata without changing files.</pre>
     </section>
 
-    <section class="panel delivery-panel">
-      <h2>Item Delivery</h2>
-      <p>Send can auto-detect one generated @U serial from the embedded editor. Use Detect/Confirm when you want to verify or choose between multiple serials.</p>
-      <div class="button-row wrap">
-        <button id="detectSerialBtn">Detect Serial From Editor</button>
-        <button id="confirmSerialBtn">Confirm Serial</button>
-        <button id="copySerialBtn">Copy Confirmed</button>
-      </div>
-      <label for="serialInput">Serial to Send</label>
-      <textarea id="serialInput" spellcheck="false" placeholder="@U..."></textarea>
-      <div id="serialSummary" class="status-line warning">No confirmed serial yet.</div>
-      <div class="button-row wrap">
-        <button data-mode="selected">Give Selected</button>
-        <button data-mode="all">Give All</button>
-        <button data-mode="nonhost">Give Non-Host</button>
-      </div>
-      <pre id="deliveryOutput">No delivery request sent yet.</pre>
-    </section>
-
-    <section class="panel editor-panel">
-      <div class="section-heading">
-        <div>
-          <h2>Embedded Matt Editor</h2>
-          <p>Build inside the editor, choose a target, then send from the MSBT panel or the shell controls.</p>
+    <section id="tab-item-pool" class="tab-panel">
+      <section class="panel gold">
+        <h2>Item Pool Spawning</h2>
+        <p>Filter item pools, then spawn the selected pool near the local player.</p>
+        <div class="grid three compact">
+          <label>
+            Search Item Pools
+            <input id="itempoolSearch" type="search" placeholder="shield, sniper, class mod...">
+          </label>
+          <label>
+            Category
+            <select id="itempoolCategory"></select>
+          </label>
+          <div class="inline-fields">
+            <label>
+              Level
+              <input id="itempoolLevel" type="number" min="1" max="60" value="60">
+            </label>
+            <label>
+              Quantity
+              <input id="itempoolCount" type="number" min="1" max="100" value="1">
+            </label>
+          </div>
         </div>
-        <div class="button-row">
-          <button id="loadEditorBtn">Load Editor</button>
-          <button id="reloadEditorBtn">Reload</button>
+        <div id="itempoolSummary" class="status-line">Loading item pools...</div>
+        <select id="itempoolList" class="list-select" size="18"></select>
+        <div class="button-row wrap">
+          <button id="spawnItempoolBtn">Spawn Selected Item Pool</button>
         </div>
+        <pre id="itempoolOutput">No item pool action sent yet.</pre>
+      </section>
+    </section>
+
+    <section id="tab-map-travel" class="tab-panel">
+      <section class="panel pink">
+        <h2>Map Travel</h2>
+        <p>Select a map first, then choose a travel station on that map.</p>
+        <div class="grid two">
+          <div>
+            <label for="travelMapSearch">Search Maps</label>
+            <input id="travelMapSearch" type="search" placeholder="world, fortress, raid...">
+            <div id="travelMapSummary" class="status-line">Loading maps...</div>
+            <select id="travelMapList" class="list-select" size="16"></select>
+            <div class="button-row wrap">
+              <button id="travelMapBtn">Travel to Selected Map</button>
+            </div>
+          </div>
+          <div>
+            <label for="travelStationSearch">Search Travel Stations</label>
+            <input id="travelStationSearch" type="search" placeholder="boss, bunker, station...">
+            <label class="check-row"><input id="travelShowAllStations" type="checkbox"> Show all travel stations</label>
+            <div id="travelStationSummary" class="status-line">Select a map to filter stations.</div>
+            <select id="travelStationList" class="list-select" size="16"></select>
+            <div class="button-row wrap">
+              <button id="travelStationBtn">Travel to Selected Station</button>
+            </div>
+          </div>
+        </div>
+        <pre id="travelOutput">No travel action sent yet.</pre>
+      </section>
+    </section>
+
+    <section id="tab-activity" class="tab-panel">
+      <div class="grid two">
+        <section class="panel purple">
+          <h2>Activity Log</h2>
+          <div class="button-row wrap">
+            <button id="refreshActivityBtn">Refresh Status</button>
+            <button id="clearActivityBtn" class="danger">Clear Local Log</button>
+            <button id="clearBridgeLogBtn">Clear Bridge Markers</button>
+          </div>
+          <pre id="activityOutput">Activity starts here.</pre>
+        </section>
+        <section class="panel cyan">
+          <h2>Bridge Raw Status</h2>
+          <pre id="statusOutput">Click Refresh Status to check the SDK bridge.</pre>
+        </section>
       </div>
-      <iframe id="editorFrame" title="Matt editor local frame"></iframe>
+    </section>
+
+    <section id="tab-updates" class="tab-panel">
+      <section class="panel purple">
+        <h2>Update Check</h2>
+        <div id="updateSummary" class="status-line">No update check yet.</div>
+        <div class="button-row wrap">
+          <button id="downloadBtn">Open Latest Download</button>
+        </div>
+        <pre id="updateOutput">Checks GitHub Releases metadata without changing files.</pre>
+      </section>
     </section>
   </main>
 
