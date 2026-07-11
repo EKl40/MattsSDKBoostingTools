@@ -259,8 +259,20 @@ async function copyConfirmedSerial() {
 }
 
 async function loadEditor() {
-  const url = await window.msbt.mattEditorUrl();
+  setOutput(els.deliveryOutput, "Starting hosted Matt editor...");
+  const result = await window.msbt.mattEditorUrl();
+  const url = typeof result === "string" ? result : result.url;
+  const hosted = typeof result === "string" ? false : Boolean(result.hosted);
+  const message = typeof result === "string" ? "Loaded raw editor file." : result.message;
   els.editorFrame.src = url;
+  setOutput(els.deliveryOutput, message || (hosted ? "Hosted Matt editor loaded." : "Editor loaded."));
+  setLine(
+    els.serialSummary,
+    hosted
+      ? "Hosted editor loaded. Use the MSBT Delivery panel inside the editor, or detect one serial here."
+      : "Raw editor fallback loaded. Delivery adapter may be unavailable.",
+    hosted ? "ok" : "warning"
+  );
 }
 
 async function checkUpdates() {

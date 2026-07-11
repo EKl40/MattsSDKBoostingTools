@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const fs = require("fs/promises");
 const path = require("path");
+const { spawn } = require("child_process");
 const { pathToFileURL } = require("url");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -14,6 +15,12 @@ const MATT_EDITOR_INDEX = path.join(
   "matt_editor",
   "index.html"
 );
+const EXTERNAL_APP_DIR = path.join(REPO_ROOT, "external_app", "v22_parts_codes_fixed");
+const LOCAL_VENV_PYTHON = path.join(REPO_ROOT, ".venv", "Scripts", "python.exe");
+const MATT_HOST_START_TIMEOUT_MS = 12000;
+
+let mattHostProcess = null;
+let mattHostUrl = "";
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -61,7 +68,106 @@ async function requestBridge({ method = "GET", path: route = "/status", payload 
 
 ipcMain.handle("bridge:request", async (_event, args) => requestBridge(args || {}));
 
-ipcMain.handle("app:mattEditorUrl", async () => pathToFileURL(MATT_EDITOR_INDEX).toString());
+function pythonCandidates() {
+  const out = [];
+  if (process.env.MSBT_PYTHON) out.push(process.env.MSBT_PYTHON);
+  out.push(LOCAL_VENV_PYTHON, "python", "py");
+  return Array.from(new Set(out.filter(Boolean)));
+}
+
+function hostProcessIsAlive() {
+  return mattHostProcess && mattHostProcess.exitCode === null && !mattHostProcess.killed;
+}
+
+function startHostWithPython(pythonExe) {
+  const code = [
+    "import sys, time",
+    `sys.path.insert(0, ${JSON.stringify(EXTERNAL_APP_DIR)})`,
+    "import matt_editor_host",
+    "url = matt_editor_host.start_editor_host()",
+    "print(url, flush=True)",
+    "try:",
+    "    while True:",
+    "        time.sleep(3600)",
+    "except KeyboardInterrupt:",
+    "    pass",
+    "finally:",
+    "    matt_editor_host.stop_editor_host()"
+  ].join("\n");
+  const args = pythonExe === "py" ? ["-3", "-c", code] : ["-c", code];
+  const child = spawn(pythonExe, args, {
+    cwd: EXTERNAL_APP_DIR,
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true
+  });
+
+  return new Promise((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`Timed out starting Matt editor host with ${pythonExe}. ${stderr.trim()}`.trim()));
+    }, MATT_HOST_START_TIMEOUT_MS);
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+      const match = stdout.match(/https?:\/\/127\.0\.0\.1:\d+\/?/);
+      if (!match) return;
+      clearTimeout(timer);
+      mattHostProcess = child;
+      mattHostUrl = match[0].endsWith("/") ? match[0] : `${match[0]}/`;
+      resolve(mattHostUrl);
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+
+    child.on("exit", (codeNumber, signal) => {
+      if (mattHostProcess === child) {
+        mattHostProcess = null;
+        mattHostUrl = "";
+      }
+      if (!stdout.match(/https?:\/\/127\.0\.0\.1:\d+\/?/)) {
+        clearTimeout(timer);
+        reject(new Error(`Matt editor host exited (${codeNumber || signal || "unknown"}). ${stderr.trim()}`.trim()));
+      }
+    });
+  });
+}
+
+async function startMattEditorHost() {
+  if (hostProcessIsAlive() && mattHostUrl) return mattHostUrl;
+
+  const errors = [];
+  for (const candidate of pythonCandidates()) {
+    try {
+      return await startHostWithPython(candidate);
+    } catch (error) {
+      errors.push(`${candidate}: ${error && error.message ? error.message : error}`);
+    }
+  }
+  throw new Error(errors.join("\n"));
+}
+
+ipcMain.handle("app:mattEditorUrl", async () => {
+  try {
+    const url = await startMattEditorHost();
+    return { ok: true, url, hosted: true, message: "Loaded hosted Matt editor with MSBT delivery adapter." };
+  } catch (error) {
+    return {
+      ok: false,
+      url: pathToFileURL(MATT_EDITOR_INDEX).toString(),
+      hosted: false,
+      message: `Hosted Matt editor failed; falling back to raw file view. ${error && error.message ? error.message : error}`
+    };
+  }
+});
 
 ipcMain.handle("app:checkUpdates", async () => {
   let local = {};
@@ -120,5 +226,11 @@ app.whenReady().then(() => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
+  }
+});
+
+app.on("before-quit", () => {
+  if (hostProcessIsAlive()) {
+    mattHostProcess.kill();
   }
 });
