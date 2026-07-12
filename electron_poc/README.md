@@ -2,6 +2,8 @@
 
 This folder is an isolated Electron test shell. It does not replace the current Tkinter app.
 
+Current beta replacement priorities are tracked in [../docs/ELECTRON_BETA_ROADMAP.md](../docs/ELECTRON_BETA_ROADMAP.md).
+
 The first goals are:
 
 1. Can Electron talk to the existing SDK bridge over HTTP?
