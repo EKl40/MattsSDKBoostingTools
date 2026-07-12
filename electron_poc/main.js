@@ -8,6 +8,11 @@ const {
   readFavorites,
   writeFavorites
 } = require("./dev_spawner_favorites_store");
+const {
+  bookmarksFilePath,
+  readBookmarks,
+  writeBookmarks
+} = require("./serial_bookmarks_store");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const DEFAULT_BRIDGE = "http://127.0.0.1:49774";
@@ -140,6 +145,20 @@ ipcMain.handle("app:saveDevSpawnerFavorites", async (_event, payload) => {
   const filePath = favoritesFilePath(app.getPath("userData"));
   try {
     return await writeFavorites(filePath, payload || {});
+  } catch (error) {
+    return { ok: false, message: String(error && error.message ? error.message : error) };
+  }
+});
+
+ipcMain.handle("app:loadSerialBookmarks", async () => {
+  const filePath = bookmarksFilePath(app.getPath("userData"));
+  return readBookmarks(filePath);
+});
+
+ipcMain.handle("app:saveSerialBookmarks", async (_event, payload) => {
+  const filePath = bookmarksFilePath(app.getPath("userData"));
+  try {
+    return await writeBookmarks(filePath, payload || {});
   } catch (error) {
     return { ok: false, message: String(error && error.message ? error.message : error) };
   }

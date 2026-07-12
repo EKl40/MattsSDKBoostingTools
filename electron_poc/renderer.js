@@ -54,6 +54,25 @@ const els = {
   itempoolSearch: document.getElementById("itempoolSearch"),
   itempoolSummary: document.getElementById("itempoolSummary"),
   inventoryStatus: document.getElementById("inventoryStatus"),
+  bookmarkCopyBtn: document.getElementById("bookmarkCopyBtn"),
+  bookmarkCount: document.getElementById("bookmarkCount"),
+  bookmarkDeleteBtn: document.getElementById("bookmarkDeleteBtn"),
+  bookmarkGroup: document.getElementById("bookmarkGroup"),
+  bookmarkGroupFilter: document.getElementById("bookmarkGroupFilter"),
+  bookmarkName: document.getElementById("bookmarkName"),
+  bookmarkNewBtn: document.getElementById("bookmarkNewBtn"),
+  bookmarkOutput: document.getElementById("bookmarkOutput"),
+  bookmarkRefreshPlayersBtn: document.getElementById("bookmarkRefreshPlayersBtn"),
+  bookmarkRows: document.getElementById("bookmarkRows"),
+  bookmarkSaveBtn: document.getElementById("bookmarkSaveBtn"),
+  bookmarkSearch: document.getElementById("bookmarkSearch"),
+  bookmarkSerial: document.getElementById("bookmarkSerial"),
+  bookmarkSetTargetBtn: document.getElementById("bookmarkSetTargetBtn"),
+  bookmarkStatus: document.getElementById("bookmarkStatus"),
+  bookmarkTargetSelect: document.getElementById("bookmarkTargetSelect"),
+  bookmarkTargetSummary: document.getElementById("bookmarkTargetSummary"),
+  bookmarkValidateBtn: document.getElementById("bookmarkValidateBtn"),
+  bookmarkValidationStatus: document.getElementById("bookmarkValidationStatus"),
   copyBreakdownBtn: document.getElementById("copyBreakdownBtn"),
   copyDeserializedBtn: document.getElementById("copyDeserializedBtn"),
   copySerializedBtn: document.getElementById("copySerializedBtn"),
@@ -98,6 +117,14 @@ const state = {
   autoInventoryLastMessage: "",
   autoInventoryTimer: null,
   bridgeOnline: false,
+  bookmarkActiveId: "",
+  bookmarkConfirmedId: "",
+  bookmarkConfirmedSerial: "",
+  bookmarkFilterGroup: "All",
+  bookmarkLastValidation: null,
+  bookmarkStatusWarnings: [],
+  bookmarks: [],
+  bookmarkVisibleRows: [],
   confirmedSerial: "",
   devActorPage: 0,
   devActiveCategory: "",
@@ -314,27 +341,31 @@ function renderPlayers(status = {}) {
   const selected = selectedTargetFromStatus(status);
   if (selected) state.selectedTarget = selected;
 
-  if (!els.targetSelect) return;
-  els.targetSelect.innerHTML = "";
-  const blank = document.createElement("option");
-  blank.value = "";
-  blank.textContent = state.players.length ? "Choose player" : "No players loaded";
-  els.targetSelect.appendChild(blank);
+  const fillSelect = (selectNode) => {
+    if (!selectNode) return;
+    selectNode.innerHTML = "";
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = state.players.length ? "Choose player" : "No players loaded";
+    selectNode.appendChild(blank);
 
-  state.players.forEach((player) => {
-    const option = document.createElement("option");
-    option.value = playerValue(player);
-    option.textContent = playerLabel(player);
-    if (String(option.value) === String(state.selectedTarget)) option.selected = true;
-    els.targetSelect.appendChild(option);
-  });
+    state.players.forEach((player) => {
+      const option = document.createElement("option");
+      option.value = playerValue(player);
+      option.textContent = playerLabel(player);
+      if (String(option.value) === String(state.selectedTarget)) option.selected = true;
+      selectNode.appendChild(option);
+    });
+  };
+
+  fillSelect(els.targetSelect);
+  fillSelect(els.bookmarkTargetSelect);
 
   const selectedPlayer = state.players.find((player) => String(playerValue(player)) === String(state.selectedTarget));
-  setLine(
-    els.targetSummary,
-    `Selected target: ${selectedPlayer ? playerLabel(selectedPlayer) : state.selectedTarget || "none"}`,
-    state.selectedTarget ? "ok" : "warning"
-  );
+  const text = `Selected target: ${selectedPlayer ? playerLabel(selectedPlayer) : state.selectedTarget || "none"}`;
+  const kind = state.selectedTarget ? "ok" : "warning";
+  setLine(els.targetSummary, text, kind);
+  setLine(els.bookmarkTargetSummary, text, kind);
 }
 
 async function bridgeStatus() {
@@ -370,11 +401,13 @@ async function setTarget(value) {
   if (!target) {
     state.selectedTarget = "";
     setLine(els.targetSummary, "Selected target: none", "warning");
+    setLine(els.bookmarkTargetSummary, "Selected target: none", "warning");
     updateSerialState();
     return null;
   }
 
   setLine(els.targetSummary, `Setting target ${target}...`, "warning");
+  setLine(els.bookmarkTargetSummary, `Setting target ${target}...`, "warning");
   const result = await bridgeAction("set_target_player", { target_player: target }, 10000);
   setOutput(els.statusOutput, result);
   const ok = Boolean(result && result.data && result.data.ok);
@@ -382,7 +415,9 @@ async function setTarget(value) {
     state.selectedTarget = target;
     await bridgeStatus();
   } else {
-    setLine(els.targetSummary, resultMessage(result) || "Target update failed.", "bad");
+    const message = resultMessage(result) || "Target update failed.";
+    setLine(els.targetSummary, message, "bad");
+    setLine(els.bookmarkTargetSummary, message, "bad");
     updateSerialState();
   }
   return result;
@@ -573,6 +608,334 @@ async function sendSerialPayload(mode, serialText, overrideLevel, level, outNode
   }, outNode, 60000);
   await bridgeStatus();
   return result;
+}
+
+function bookmarkNow() {
+  return new Date().toISOString();
+}
+
+function bookmarkId() {
+  return `bm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function bookmarkSummarySerial(serial) {
+  const text = String(serial || "").trim();
+  if (!text) return "No serial";
+  return text.length > 82 ? `${text.slice(0, 42)}...${text.slice(-24)}` : text;
+}
+
+function normalizeBookmarkForRenderer(row = {}) {
+  const now = bookmarkNow();
+  return {
+    id: String(row.id || bookmarkId()).trim(),
+    name: String(row.name || "Untitled Serial").trim() || "Untitled Serial",
+    group: String(row.group || "Default").trim() || "Default",
+    serial: String(row.serial || "").trim(),
+    created_at: String(row.created_at || now),
+    updated_at: String(row.updated_at || now)
+  };
+}
+
+function activeBookmark() {
+  return state.bookmarks.find((row) => row.id === state.bookmarkActiveId) || null;
+}
+
+function bookmarkSearchText(row) {
+  return [
+    row.name,
+    row.group,
+    row.serial
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function bookmarkGroups() {
+  return Array.from(new Set(state.bookmarks.map((row) => row.group || "Default"))).sort((a, b) => a.localeCompare(b));
+}
+
+function setBookmarkStatus(message, kind = "warning") {
+  setLine(els.bookmarkStatus, message, kind);
+}
+
+function setBookmarkValidation(message, kind = "warning") {
+  setLine(els.bookmarkValidationStatus, message, kind);
+}
+
+function invalidateBookmarkConfirmation(message = "Serial changed. Validate / Confirm Serial before sending.") {
+  state.bookmarkConfirmedId = "";
+  state.bookmarkConfirmedSerial = "";
+  state.bookmarkLastValidation = null;
+  setBookmarkValidation(message, "warning");
+}
+
+function renderBookmarkGroupFilter() {
+  if (!els.bookmarkGroupFilter) return;
+  const previous = getValue(els.bookmarkGroupFilter) || state.bookmarkFilterGroup || "All";
+  els.bookmarkGroupFilter.innerHTML = "";
+  ["All", ...bookmarkGroups()].forEach((group) => {
+    const option = document.createElement("option");
+    option.value = group;
+    option.textContent = group;
+    if (group === previous) option.selected = true;
+    els.bookmarkGroupFilter.appendChild(option);
+  });
+  state.bookmarkFilterGroup = Array.from(els.bookmarkGroupFilter.options).some((option) => option.value === previous)
+    ? previous
+    : "All";
+  els.bookmarkGroupFilter.value = state.bookmarkFilterGroup;
+}
+
+function filteredBookmarks() {
+  const query = getValue(els.bookmarkSearch).toLowerCase();
+  const group = getValue(els.bookmarkGroupFilter) || state.bookmarkFilterGroup || "All";
+  state.bookmarkFilterGroup = group;
+  return state.bookmarks.filter((row) => {
+    const groupOk = group === "All" || (row.group || "Default") === group;
+    const queryOk = !query || bookmarkSearchText(row).includes(query);
+    return groupOk && queryOk;
+  });
+}
+
+function renderBookmarks() {
+  renderBookmarkGroupFilter();
+  const rows = filteredBookmarks();
+  state.bookmarkVisibleRows = rows;
+  setLine(els.bookmarkCount, `${rows.length} shown / ${state.bookmarks.length} saved`, rows.length ? "ok" : "warning");
+
+  if (!els.bookmarkRows) return;
+  els.bookmarkRows.innerHTML = "";
+  if (!state.bookmarks.length) {
+    const empty = document.createElement("div");
+    empty.className = "dev-empty-row";
+    empty.textContent = "No saved serial bookmarks yet. Add a name and one @U serial, then Save.";
+    els.bookmarkRows.appendChild(empty);
+    return;
+  }
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "dev-empty-row";
+    empty.textContent = "No bookmarks match the current search and group filter.";
+    els.bookmarkRows.appendChild(empty);
+    return;
+  }
+
+  rows.forEach((row) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `bookmark-row${row.id === state.bookmarkActiveId ? " active" : ""}`;
+    button.addEventListener("click", () => selectBookmark(row.id));
+
+    const main = document.createElement("span");
+    const title = document.createElement("span");
+    title.className = "bookmark-title";
+    title.textContent = row.name || "Untitled Serial";
+    const serial = document.createElement("span");
+    serial.className = "bookmark-serial";
+    serial.textContent = bookmarkSummarySerial(row.serial);
+    main.append(title, serial);
+
+    const group = document.createElement("span");
+    group.className = "bookmark-group";
+    group.textContent = row.group || "Default";
+
+    button.append(main, group);
+    els.bookmarkRows.appendChild(button);
+  });
+}
+
+function clearBookmarkForm() {
+  state.bookmarkActiveId = "";
+  setTextValue(els.bookmarkName, "");
+  setTextValue(els.bookmarkGroup, "Default");
+  setTextValue(els.bookmarkSerial, "");
+  invalidateBookmarkConfirmation("New bookmark staged. Add one @U serial, save, then validate before sending.");
+  renderBookmarks();
+}
+
+function selectBookmark(id) {
+  const row = state.bookmarks.find((item) => item.id === id);
+  if (!row) {
+    clearBookmarkForm();
+    return;
+  }
+  state.bookmarkActiveId = row.id;
+  setTextValue(els.bookmarkName, row.name || "");
+  setTextValue(els.bookmarkGroup, row.group || "Default");
+  setTextValue(els.bookmarkSerial, row.serial || "");
+  invalidateBookmarkConfirmation("Bookmark loaded. Validate / Confirm Serial before sending.");
+  setBookmarkStatus(`Selected bookmark: ${row.name || "Untitled Serial"}`, "ok");
+  renderBookmarks();
+}
+
+async function persistSerialBookmarks(successMessage) {
+  const result = await window.msbt.saveSerialBookmarks({ version: 1, bookmarks: state.bookmarks });
+  if (!result || !result.ok) {
+    setBookmarkStatus(result && result.message ? result.message : "Serial bookmarks could not be saved.", "bad");
+    return false;
+  }
+  state.bookmarks = Array.isArray(result.data && result.data.bookmarks)
+    ? result.data.bookmarks.map(normalizeBookmarkForRenderer)
+    : [];
+  if (state.bookmarkActiveId && !activeBookmark()) state.bookmarkActiveId = "";
+  renderBookmarks();
+  const warning = Array.isArray(result.warnings) && result.warnings.length ? ` ${result.warnings.join(" ")}` : "";
+  setBookmarkStatus(`${successMessage}${warning}`, warning ? "warning" : "ok");
+  return true;
+}
+
+async function loadSerialBookmarks() {
+  if (!window.msbt || typeof window.msbt.loadSerialBookmarks !== "function") {
+    setBookmarkStatus("Serial bookmark storage is not available in this Electron build.", "bad");
+    return;
+  }
+  const result = await window.msbt.loadSerialBookmarks();
+  if (!result || !result.ok) {
+    state.bookmarks = [];
+    renderBookmarks();
+    setBookmarkStatus(result && result.message ? result.message : "Serial bookmarks could not be loaded.", "bad");
+    return;
+  }
+  state.bookmarks = Array.isArray(result.data && result.data.bookmarks)
+    ? result.data.bookmarks.map(normalizeBookmarkForRenderer)
+    : [];
+  const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+  renderBookmarks();
+  if (state.bookmarks.length && !state.bookmarkActiveId) {
+    selectBookmark(state.bookmarks[0].id);
+  }
+  const message = warnings.length
+    ? `Loaded ${state.bookmarks.length} bookmark(s). ${warnings.join(" ")}`
+    : `Loaded ${state.bookmarks.length} bookmark(s).`;
+  setBookmarkStatus(message, warnings.length ? "warning" : "ok");
+}
+
+function bookmarkFormRecord(existing = null) {
+  const now = bookmarkNow();
+  return {
+    id: existing && existing.id ? existing.id : bookmarkId(),
+    name: getValue(els.bookmarkName) || "Untitled Serial",
+    group: getValue(els.bookmarkGroup) || "Default",
+    serial: getValue(els.bookmarkSerial),
+    created_at: existing && existing.created_at ? existing.created_at : now,
+    updated_at: now
+  };
+}
+
+async function saveBookmark() {
+  const serial = getValue(els.bookmarkSerial);
+  const validation = serialValidationMessage(serial);
+  if (validation) {
+    setBookmarkStatus(`Cannot save bookmark: ${validation}`, "bad");
+    invalidateBookmarkConfirmation("Fix the serial before validating or sending.");
+    return;
+  }
+  const previous = state.bookmarks.slice();
+  const existing = activeBookmark();
+  const record = normalizeBookmarkForRenderer(bookmarkFormRecord(existing));
+  if (existing) {
+    state.bookmarks = state.bookmarks.map((row) => (row.id === existing.id ? record : row));
+  } else {
+    state.bookmarks = [...state.bookmarks, record];
+  }
+  state.bookmarkActiveId = record.id;
+  invalidateBookmarkConfirmation("Bookmark saved. Validate / Confirm Serial before sending.");
+  const saved = await persistSerialBookmarks(existing ? "Bookmark updated." : "Bookmark added.");
+  if (!saved) {
+    state.bookmarks = previous;
+    renderBookmarks();
+  }
+}
+
+async function deleteBookmark() {
+  const row = activeBookmark();
+  if (!row) {
+    setBookmarkStatus("Select a bookmark to delete.", "warning");
+    return;
+  }
+  const previous = state.bookmarks.slice();
+  state.bookmarks = state.bookmarks.filter((item) => item.id !== row.id);
+  clearBookmarkForm();
+  const saved = await persistSerialBookmarks(`Deleted bookmark: ${row.name || "Untitled Serial"}.`);
+  if (!saved) {
+    state.bookmarks = previous;
+    state.bookmarkActiveId = row.id;
+    selectBookmark(row.id);
+  }
+}
+
+async function copyBookmarkSerial() {
+  const serial = getValue(els.bookmarkSerial);
+  await copyText(serial, els.bookmarkValidationStatus, "Bookmark serial");
+}
+
+function bookmarkValidationFailure(message) {
+  state.bookmarkConfirmedId = "";
+  state.bookmarkConfirmedSerial = "";
+  state.bookmarkLastValidation = null;
+  setBookmarkValidation(message, "bad");
+  setOutput(els.bookmarkOutput, message);
+}
+
+async function validateBookmarkSerial() {
+  const serial = getValue(els.bookmarkSerial);
+  const validation = serialValidationMessage(serial);
+  if (validation) {
+    bookmarkValidationFailure(validation);
+    return false;
+  }
+
+  setBookmarkValidation("Validating serial locally...", "warning");
+  const result = await window.msbt.validatorBasic(serial);
+  const first = Array.isArray(result && result.results) && result.results.length ? result.results[0] : {};
+  const status = String(first.status || result.status || "").toUpperCase();
+  if (!result || !result.ok || result.total !== 1 || status === "ERROR") {
+    const message = result && (result.summary || result.message || result.output)
+      ? (result.summary || result.message || result.output)
+      : "Serial validation failed.";
+    bookmarkValidationFailure(message);
+    return false;
+  }
+
+  state.bookmarkConfirmedId = state.bookmarkActiveId || "";
+  state.bookmarkConfirmedSerial = serial;
+  state.bookmarkLastValidation = result;
+  const summary = result.summary || first.message || `Validation complete: ${status || "serial parsed"}.`;
+  setBookmarkValidation(
+    status === "LEGIT" ? `Confirmed: ${summary}` : `Confirmed with warning: ${summary}`,
+    status === "LEGIT" ? "ok" : "warning"
+  );
+  setOutput(els.bookmarkOutput, result.output || summary);
+  return true;
+}
+
+async function sendBookmarkSerial(mode) {
+  const serial = getValue(els.bookmarkSerial);
+  const validation = serialValidationMessage(serial);
+  if (validation) {
+    setOutput(els.bookmarkOutput, validation);
+    setBookmarkValidation(validation, "bad");
+    return;
+  }
+  if (state.bookmarkConfirmedSerial !== serial) {
+    const message = "Validate / Confirm Serial before sending. Confirmation clears whenever the serial changes.";
+    setOutput(els.bookmarkOutput, message);
+    setBookmarkValidation(message, "warning");
+    return;
+  }
+  if (mode === "selected" && !state.selectedTarget) {
+    const message = "Select and set a Serial Bookmarks target before Send Selected.";
+    setOutput(els.bookmarkOutput, message);
+    setLine(els.bookmarkTargetSummary, message, "warning");
+    return;
+  }
+
+  const result = await sendSerialPayload(mode, serial, false, 60, els.bookmarkOutput);
+  if (!result) return;
+  const message = resultMessage(result);
+  if (actionSucceeded(result)) {
+    setBookmarkStatus(`Delivery accepted: ${message}`, "ok");
+  } else {
+    setBookmarkStatus(`Delivery failed: ${message}`, "bad");
+  }
 }
 
 async function checkUpdates() {
@@ -1856,6 +2219,21 @@ function wireEvents() {
   els.copyBreakdownBtn.addEventListener("click", () => copyText(els.serialToolsBreakdown.value, els.serialToolsStatus, "Parts breakdown"));
   els.copySerializedBtn.addEventListener("click", () => copyText(els.serialToolsSerialized.value, els.serialToolsStatus, "@U serialized output"));
 
+  els.bookmarkSearch.addEventListener("input", renderBookmarks);
+  els.bookmarkGroupFilter.addEventListener("change", renderBookmarks);
+  els.bookmarkNewBtn.addEventListener("click", clearBookmarkForm);
+  els.bookmarkSaveBtn.addEventListener("click", saveBookmark);
+  els.bookmarkDeleteBtn.addEventListener("click", deleteBookmark);
+  els.bookmarkValidateBtn.addEventListener("click", validateBookmarkSerial);
+  els.bookmarkCopyBtn.addEventListener("click", copyBookmarkSerial);
+  els.bookmarkSerial.addEventListener("input", () => invalidateBookmarkConfirmation());
+  els.bookmarkTargetSelect.addEventListener("change", () => setTarget(els.bookmarkTargetSelect.value));
+  els.bookmarkSetTargetBtn.addEventListener("click", () => setTarget(els.bookmarkTargetSelect.value));
+  els.bookmarkRefreshPlayersBtn.addEventListener("click", bridgeStatus);
+  document.querySelectorAll("[data-bookmark-send-mode]").forEach((button) => {
+    button.addEventListener("click", () => sendBookmarkSerial(button.dataset.bookmarkSendMode));
+  });
+
   els.validatorBasicBtn.addEventListener("click", validateBasic);
   els.validatorBulkBtn.addEventListener("click", validateBulk);
   els.validatorClearBtn.addEventListener("click", clearValidator);
@@ -1946,7 +2324,7 @@ function wireEvents() {
 async function init() {
   wireEvents();
   syncDevSpawnerAdvancedControls();
-  await Promise.all([loadItemPools(), loadTravelResources(), loadDevSpawnerCatalog(), loadDevSpawnerFavorites()]);
+  await Promise.all([loadItemPools(), loadTravelResources(), loadDevSpawnerCatalog(), loadDevSpawnerFavorites(), loadSerialBookmarks()]);
   await bridgeStatus();
   await checkUpdates();
 }

@@ -22,6 +22,7 @@
   <nav class="tab-bar" aria-label="Electron test tabs">
     <button class="active" data-tab="boosting">Boosting</button>
     <button data-tab="serial-tools">Serial Tools</button>
+    <button data-tab="serial-bookmarks">Serial Bookmarks</button>
     <button data-tab="validator">Validator</button>
     <button data-tab="matt-editor">Matt Editor</button>
     <button data-tab="item-pool">Item Pool Spawning</button>
@@ -205,6 +206,74 @@
             </div>
             <textarea id="serialToolsSerialized" class="output-box small" spellcheck="false" readonly></textarea>
           </div>
+        </div>
+      </section>
+    </section>
+
+    <section id="tab-serial-bookmarks" class="tab-panel">
+      <section class="panel purple">
+        <div class="section-heading">
+          <div>
+            <h2>Serial Bookmarks</h2>
+            <p>Save one confirmed @U serial per bookmark, then deliver the active bookmark through the SDK bridge.</p>
+          </div>
+          <div class="button-row wrap">
+            <button id="bookmarkNewBtn">+ New Serial</button>
+            <button id="bookmarkSaveBtn">Save</button>
+            <button id="bookmarkDeleteBtn" class="danger">Delete</button>
+          </div>
+        </div>
+        <div id="bookmarkStatus" class="status-line warning">Loading serial bookmarks...</div>
+
+        <div class="grid bookmark-grid">
+          <section class="bookmark-browser">
+            <div class="grid two compact">
+              <label>
+                Search
+                <input id="bookmarkSearch" type="search" autocomplete="off" spellcheck="false" placeholder="name, group, serial...">
+              </label>
+              <label>
+                Groups
+                <select id="bookmarkGroupFilter">
+                  <option value="All">All</option>
+                </select>
+              </label>
+            </div>
+            <div id="bookmarkCount" class="status-line">0 shown / 0 saved</div>
+            <div id="bookmarkRows" class="bookmark-list">
+              <div class="dev-empty-row">No saved bookmarks yet.</div>
+            </div>
+          </section>
+
+          <section class="bookmark-editor">
+            <h3>Details</h3>
+            <label for="bookmarkName">Name</label>
+            <input id="bookmarkName" type="text" autocomplete="off" placeholder="Bookmark name">
+            <label for="bookmarkGroup">Group</label>
+            <input id="bookmarkGroup" type="text" autocomplete="off" value="Default">
+            <label for="bookmarkSerial">Serial</label>
+            <textarea id="bookmarkSerial" spellcheck="false" placeholder="@U..."></textarea>
+            <div class="button-row wrap">
+              <button id="bookmarkValidateBtn">Validate / Confirm Serial</button>
+              <button id="bookmarkCopyBtn">Copy Serial</button>
+            </div>
+            <div id="bookmarkValidationStatus" class="status-line warning">No confirmed serial yet.</div>
+            <label for="bookmarkTargetSelect">Serial Bookmarks Target</label>
+            <div class="target-row">
+              <select id="bookmarkTargetSelect">
+                <option value="">No players loaded</option>
+              </select>
+              <button id="bookmarkRefreshPlayersBtn">Refresh Players</button>
+              <button id="bookmarkSetTargetBtn">Set Target</button>
+            </div>
+            <div id="bookmarkTargetSummary" class="status-line warning">Selected target: none</div>
+            <div class="button-row wrap">
+              <button data-bookmark-send-mode="selected">Send Selected</button>
+              <button data-bookmark-send-mode="all">Send All</button>
+              <button data-bookmark-send-mode="nonhost">Send Non-Host</button>
+            </div>
+            <pre id="bookmarkOutput">No bookmark delivery sent yet.</pre>
+          </section>
         </div>
       </section>
     </section>

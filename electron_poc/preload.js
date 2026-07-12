@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld("msbt", {
   readDevSpawnerCatalog: () => ipcRenderer.invoke("app:readDevSpawnerCatalog"),
   loadDevSpawnerFavorites: () => ipcRenderer.invoke("app:loadDevSpawnerFavorites"),
   saveDevSpawnerFavorites: (payload) => ipcRenderer.invoke("app:saveDevSpawnerFavorites", payload),
+  loadSerialBookmarks: () => ipcRenderer.invoke("app:loadSerialBookmarks"),
+  saveSerialBookmarks: (payload) => ipcRenderer.invoke("app:saveSerialBookmarks", payload),
   readSdkLogTail: (options) => ipcRenderer.invoke("app:readSdkLogTail", options),
   readResourceJson: (resourceName) => ipcRenderer.invoke("app:readResourceJson", resourceName),
   openExternal: (url) => ipcRenderer.invoke("app:openExternal", url)

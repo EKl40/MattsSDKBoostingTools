@@ -245,6 +245,11 @@ iframe {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.grid.bookmark-grid {
+  grid-template-columns: minmax(320px, 44%) minmax(360px, 1fr);
+  align-items: start;
+}
+
 .grid.sidecar {
   grid-template-columns: minmax(320px, 430px) minmax(620px, 1fr);
   min-height: calc(100vh - 160px);
@@ -446,6 +451,67 @@ iframe {
   padding: 12px;
 }
 
+.bookmark-list {
+  border: 1px solid var(--line);
+  background: #0d1320;
+  min-height: 420px;
+  max-height: 620px;
+  overflow: auto;
+  padding: 6px;
+}
+
+.bookmark-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  border-bottom: 1px solid rgba(52, 64, 82, .55);
+  background: transparent;
+  color: var(--text);
+  font-weight: 500;
+  line-height: 1.35;
+  padding: 7px 6px;
+  text-align: left;
+}
+
+.bookmark-row:hover,
+.bookmark-row.active {
+  background: rgba(36, 68, 102, .5);
+}
+
+.bookmark-title,
+.bookmark-serial {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.bookmark-title {
+  color: var(--text);
+}
+
+.bookmark-group {
+  color: var(--muted);
+  font-size: .86em;
+}
+
+.bookmark-serial {
+  color: var(--cyan);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: .8em;
+}
+
+.bookmark-editor textarea {
+  min-height: 150px;
+}
+
+.target-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .dev-detail-card {
   border: 1px solid var(--line);
   background: #0d1320;
@@ -490,6 +556,7 @@ iframe {
     grid-template-columns: 1fr;
   }
 
+  .bookmark-row,
   .dev-detail-row {
     grid-template-columns: 1fr;
   }
@@ -546,8 +613,13 @@ iframe {
   .grid.two,
   .grid.three,
   .grid.five,
+  .grid.bookmark-grid,
   .grid.sidecar,
   .inline-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .target-row {
     grid-template-columns: 1fr;
   }
 
