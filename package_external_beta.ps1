@@ -76,7 +76,7 @@ Assert-UnderRepo $ReleasesFolder
 $ElectronVersion = Get-ElectronPackageVersion
 $PackageVersion = $ElectronVersion
 $ReleaseTag = "v$PackageVersion"
-$PortableZipName = "MattsSDKBoostingTools-Portable-v$PackageVersion.zip"
+$PortableZipName = "MattsSDKBoostingTools-Legacy-Tkinter-Portable-v$PackageVersion.zip"
 $ZipPath = Join-Path $RepoRoot $PortableZipName
 Assert-UnderRepo $ZipPath
 
@@ -109,7 +109,9 @@ $ExePath = Join-Path $ExternalFolder "MattsBoostingToolsExternal.exe"
 $ExeHash = (Get-FileHash -Algorithm SHA256 $ExePath).Hash.ToLowerInvariant()
 $UiLayoutPath = Join-Path $ExternalFolder "resources\ui_layout.json"
 $ResourcesHash = if (Test-Path $UiLayoutPath) { (Get-FileHash -Algorithm SHA256 $UiLayoutPath).Hash.ToLowerInvariant() } else { "" }
-$DownloadUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/download/$ReleaseTag/$PortableZipName"
+$ElectronPortableZipName = "MattsSDKBoostingTools-Electron-Portable-v$PackageVersion-win-x64.zip"
+$DownloadUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/download/$ReleaseTag/$ElectronPortableZipName"
+$LegacyPortableDownloadUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/download/$ReleaseTag/$PortableZipName"
 $LatestManifestUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/latest/download/latest.json"
 $ReleaseUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases"
 $ElectronInstallerName = "MattsSDKBoostingTools-Setup-v$ElectronVersion.exe"
@@ -127,6 +129,7 @@ $VersionInfo = [ordered]@{
     sdk_required_url = "https://github.com/bl-sdk/oak2-mod-manager/releases/tag/v0.3"
     download_url = $DownloadUrl
     manual_zip_download_url = $DownloadUrl
+    legacy_tkinter_zip_download_url = $LegacyPortableDownloadUrl
     electron_version = $ElectronVersion
     electron_installer_name = $ElectronInstallerName
     electron_installer_download_url = $ElectronDownloadUrl
@@ -180,6 +183,7 @@ $LatestManifest = [ordered]@{
     sdk_required_url = "https://github.com/bl-sdk/oak2-mod-manager/releases/tag/v0.3"
     download_url = $DownloadUrl
     manual_zip_download_url = $DownloadUrl
+    legacy_tkinter_zip_download_url = $LegacyPortableDownloadUrl
     electron_version = $ElectronVersion
     electron_installer_name = $ElectronInstallerName
     electron_installer_download_url = $ElectronDownloadUrl

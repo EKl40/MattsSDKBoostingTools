@@ -16,21 +16,18 @@ Older SDK 02 installs are not the target for current MSBT builds.
 
 ## Download Latest
 
-Most Windows users should download the current recommended beta installer from the
-[GitHub Releases page](https://github.com/funkyoushift/MattsSDKBoostingTools/releases).
+Go to the [GitHub Releases page](https://github.com/funkyoushift/MattsSDKBoostingTools/releases) and pick one file:
 
-Look for assets named like:
+| What you want | Download this | Notes |
+| --- | --- | --- |
+| Recommended normal install | `MattsSDKBoostingTools-Setup-v...exe` | Windows installer. Adds app shortcuts and includes the bundled SDK mod/update resources. |
+| Manual install / no installer | `MattsSDKBoostingTools-Electron-Portable-v...-win-x64.zip` | Extract it yourself. Electron app files plus bundled SDK mod/update resources. |
+| Legacy rollback | `MattsSDKBoostingTools-Legacy-Tkinter-Portable-v...zip` | Older Tkinter/manual package kept available while Electron beta testing continues. |
+| Source code only | GitHub `Source code (zip)` / `Source code (tar.gz)` | For developers. This is not the ready-to-run app. |
 
-- `MattsSDKBoostingTools-Setup-v0.2.3-beta.1.exe`
-- `MattsSDKBoostingTools-Portable-v0.2.3-beta.1.zip`
+Do **not** manually download `latest.json`, `latest.yml`, or `.blockmap` files. Those are update-system files used by the app/installer.
 
-Older Tkinter/manual ZIP beta packages remain available on the Releases page as rollback builds.
-
-Developers or users who do not want the prebuilt EXE can download the source:
-
-[Download Source ZIP](https://github.com/funkyoushift/MattsSDKBoostingTools/archive/refs/heads/main.zip)
-
-The packaged beta contains the SDK mod, the standalone external app, resources, and launch/update helpers. Python is not required for normal users when using the packaged installer.
+Older beta packages remain available on the Releases page as rollback builds.
 
 ## Quick Install
 
@@ -111,7 +108,7 @@ The package script creates:
 
 ```text
 MSBT_External_Beta/
-MattsSDKBoostingTools-Portable-v<version>.zip
+MattsSDKBoostingTools-Legacy-Tkinter-Portable-v<version>.zip
 releases/latest.json
 ```
 

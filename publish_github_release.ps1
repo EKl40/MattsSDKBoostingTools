@@ -46,7 +46,9 @@ function Get-ReleaseTitle {
 
 function Test-PrereleaseVersion {
     param([Parameter(Mandatory=$true)][string]$Version)
-    return [bool]($Version -match '-(?:alpha|beta)\.\d+$')
+    # Public beta builds should be treated as the latest release so the app can
+    # read /releases/latest/download/latest.json. Alpha builds stay prerelease.
+    return [bool]($Version -match '-alpha\.\d+$')
 }
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -56,7 +58,7 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
 $PackageVersion = Get-ElectronPackageVersion
 $ExpectedTagName = "v$PackageVersion"
 $Prerelease = Test-PrereleaseVersion $PackageVersion
-$ZipName = "MattsSDKBoostingTools-Portable-v$PackageVersion.zip"
+$ZipName = "MattsSDKBoostingTools-Legacy-Tkinter-Portable-v$PackageVersion.zip"
 $ZipPath = Join-Path $RepoRoot $ZipName
 $ElectronInstallerName = "MattsSDKBoostingTools-Setup-v$PackageVersion.exe"
 
@@ -101,6 +103,11 @@ if (Test-Path $blockMap) {
 }
 $ElectronAssets += $latestYml
 $ElectronAssets += $ManifestPath
+$ElectronUnpackedZipName = "MattsSDKBoostingTools-Electron-Portable-v$PackageVersion-win-x64.zip"
+$ElectronUnpackedZip = Join-Path $ElectronDist $ElectronUnpackedZipName
+if (Test-Path $ElectronUnpackedZip) {
+    $ElectronAssets += $ElectronUnpackedZip
+}
 
 $shortCommit = ""
 try {
@@ -131,13 +138,39 @@ See the repository commit history for fixes included in this build.
 
 Electron is still a beta replacement path. Keep the legacy/Tkinter package available as a rollback while beta testing continues.
 
-### Download
+### Download: pick ONE
 
-Normal Windows users should download:
+**Recommended for almost everyone**
+
+Download and run:
 - $ElectronInstallerName
 
-Manual portable ZIP:
+This is the Windows installer. It installs the Electron app, adds shortcuts, and includes the bundled SDK mod/update resources.
+
+**Manual install / portable Electron app**
+
+Download and extract:
+- $ElectronUnpackedZipName
+
+Use this if you want the Electron app without running the installer. It contains the Electron app files plus bundled SDK mod/update resources.
+
+**Legacy rollback ZIP**
+
 - $ZipName
+
+This is the older Tkinter/manual package kept as a rollback while Electron beta testing continues.
+
+**Do not manually download these unless you know why**
+
+- latest.json
+- latest.yml
+- *.blockmap
+
+These are update-system files used by the app/installer.
+
+**Source code**
+
+GitHub's automatic Source code ZIP/TAR files are for developers. They are not the ready-to-run app.
 
 ### Upgrade notes
 
