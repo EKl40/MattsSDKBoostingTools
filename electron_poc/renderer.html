@@ -23,6 +23,7 @@
     <button class="active" data-tab="boosting">Boosting</button>
     <button data-tab="serial-tools">Serial Tools</button>
     <button data-tab="serial-bookmarks">Serial Bookmarks</button>
+    <button data-tab="bl4-codes">BL4 Codes</button>
     <button data-tab="validator">Validator</button>
     <button data-tab="matt-editor">Matt Editor</button>
     <button data-tab="item-pool">Item Pool Spawning</button>
@@ -275,6 +276,131 @@
             <pre id="bookmarkOutput">No bookmark delivery sent yet.</pre>
           </section>
         </div>
+      </section>
+    </section>
+
+    <section id="tab-bl4-codes" class="tab-panel">
+      <section class="panel gold">
+        <div class="section-heading">
+          <div>
+            <h2>BL4 Codes</h2>
+            <p>Merged local BL4 catalog. Search, details, parts breakdown, validation, and bookmarks run locally; only live delivery uses the SDK bridge.</p>
+          </div>
+          <div class="button-row wrap">
+            <button id="bl4ReloadBtn">Load Catalog</button>
+            <button id="bl4ValidateBtn">Validate / Confirm Active</button>
+            <button id="bl4ImportSelectedBtn">Import Selected To Bookmarks</button>
+          </div>
+        </div>
+        <div id="bl4Status" class="status-line warning">Loading BL4 Codes catalog...</div>
+
+        <div class="filter-panel">
+          <h3>Filters</h3>
+          <div class="grid two compact">
+            <label>
+              Search
+              <div class="search-row">
+                <input id="bl4SearchInput" type="search" autocomplete="off" spellcheck="false" placeholder="name, type, creator, modded...">
+                <button id="bl4SearchBtn">Search</button>
+              </div>
+            </label>
+            <label>
+              Manufacturer
+              <select id="bl4ManufacturerFilter"></select>
+            </label>
+            <label>
+              Listing
+              <select id="bl4ListingFilter"></select>
+            </label>
+            <label>
+              Rarity
+              <select id="bl4RarityFilter"></select>
+            </label>
+            <label>
+              Type
+              <select id="bl4TypeFilter"></select>
+            </label>
+            <label>
+              Creator
+              <select id="bl4CreatorFilter"></select>
+            </label>
+            <label>
+              Mattmab Result
+              <select id="bl4MattmabFilter"></select>
+            </label>
+          </div>
+          <div class="button-row wrap">
+            <button data-bl4-result-filter="All">All Results</button>
+            <button data-bl4-result-filter="Legit">Legit</button>
+            <button data-bl4-result-filter="Modded">Modded</button>
+            <button data-bl4-result-filter="Error">Error</button>
+            <button data-bl4-result-filter="Unchecked">?</button>
+          </div>
+        </div>
+
+        <div id="bl4Count" class="status-line">0 shown / 0 merged | 0 selected</div>
+        <div class="button-row wrap">
+          <button id="bl4SelectAllBtn">Select All</button>
+          <button id="bl4ClearSelectionBtn" class="danger">Clear</button>
+          <button id="bl4CopySelectedBtn">Copy Selected Serials</button>
+        </div>
+
+        <div class="grid bl4-grid">
+          <section class="bl4-list-pane">
+            <h3>Codes</h3>
+            <div id="bl4Rows" class="bl4-code-list">
+              <div class="dev-empty-row">No BL4 codes loaded.</div>
+            </div>
+          </section>
+
+          <section class="bl4-detail-pane">
+            <h3>Details</h3>
+            <pre id="bl4Detail" class="detail-pre">Select a BL4 code.</pre>
+            <label for="bl4Serial">Serial</label>
+            <textarea id="bl4Serial" class="output-box small" spellcheck="false" readonly></textarea>
+            <label for="bl4Breakdown">Parts Breakdown</label>
+            <textarea id="bl4Breakdown" class="output-box medium" spellcheck="false" readonly></textarea>
+            <div class="button-row wrap">
+              <button id="bl4CopyBreakdownBtn">Copy Parts Breakdown</button>
+              <button id="bl4CopySerialBtn">Copy Serial</button>
+              <button id="bl4BookmarkBtn">Bookmark This</button>
+              <button id="bl4OpenLootlemonBtn">Open Lootlemon</button>
+            </div>
+          </section>
+        </div>
+
+        <section class="delivery-panel">
+          <h3>Delivery</h3>
+          <label for="bl4TargetSelect">BL4 Codes Target</label>
+          <div class="target-row">
+            <select id="bl4TargetSelect">
+              <option value="">No players loaded</option>
+            </select>
+            <button id="bl4SetTargetBtn">Set Target</button>
+            <button id="bl4RefreshPlayersBtn">Refresh Players</button>
+          </div>
+          <div id="bl4TargetSummary" class="status-line warning">Selected target: none</div>
+          <div class="inline-fields">
+            <label>
+              Override delivery level
+              <select id="bl4OverrideLevel">
+                <option value="false">false</option>
+                <option value="true">true</option>
+              </select>
+            </label>
+            <label>
+              Delivery Level
+              <input id="bl4DeliveryLevel" type="number" min="1" max="60" value="60">
+            </label>
+          </div>
+          <div id="bl4DeliveryStatus" class="status-line warning">Validate / Confirm Active before delivery. Delivery sends one active code at a time.</div>
+          <div class="button-row wrap">
+            <button data-bl4-send-mode="selected">Deliver Selected</button>
+            <button data-bl4-send-mode="all">Deliver All</button>
+            <button data-bl4-send-mode="nonhost">Deliver Non-Host</button>
+          </div>
+          <pre id="bl4Output">No BL4 Codes delivery sent yet.</pre>
+        </section>
       </section>
     </section>
 

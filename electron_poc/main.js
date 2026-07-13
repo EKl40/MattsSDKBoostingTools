@@ -13,6 +13,9 @@ const {
   readBookmarks,
   writeBookmarks
 } = require("./serial_bookmarks_store");
+const {
+  loadBl4Catalog
+} = require("./bl4_codes_catalog");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const DEFAULT_BRIDGE = "http://127.0.0.1:49774";
@@ -162,6 +165,28 @@ ipcMain.handle("app:saveSerialBookmarks", async (_event, payload) => {
   } catch (error) {
     return { ok: false, message: String(error && error.message ? error.message : error) };
   }
+});
+
+ipcMain.handle("app:loadBl4Catalog", async () => {
+  try {
+    return await loadBl4Catalog(RESOURCE_DIR);
+  } catch (error) {
+    return { ok: false, message: String(error && error.message ? error.message : error) };
+  }
+});
+
+ipcMain.handle("app:bl4PartsBreakdown", async (_event, serial) => {
+  const code = [
+    "import json, sys",
+    "import external_serial_tools",
+    "value = sys.stdin.read()",
+    "try:",
+    "    text = external_serial_tools.serial_parts_breakdown_for_value(value)",
+    "    print(json.dumps({'ok': True, 'breakdown': text}))",
+    "except Exception as exc:",
+    "    print(json.dumps({'ok': False, 'message': str(exc), 'breakdown': ''}))"
+  ].join("\n");
+  return runExternalPythonJson(code, serial, 20000);
 });
 
 async function findSdkLogPath() {

@@ -5,6 +5,38 @@ const els = {
   autoInventorySizes: document.getElementById("autoInventorySizes"),
   bankSize: document.getElementById("bankSize"),
   backpackSize: document.getElementById("backpackSize"),
+  bl4BookmarkBtn: document.getElementById("bl4BookmarkBtn"),
+  bl4Breakdown: document.getElementById("bl4Breakdown"),
+  bl4ClearSelectionBtn: document.getElementById("bl4ClearSelectionBtn"),
+  bl4CopyBreakdownBtn: document.getElementById("bl4CopyBreakdownBtn"),
+  bl4CopySelectedBtn: document.getElementById("bl4CopySelectedBtn"),
+  bl4CopySerialBtn: document.getElementById("bl4CopySerialBtn"),
+  bl4Count: document.getElementById("bl4Count"),
+  bl4CreatorFilter: document.getElementById("bl4CreatorFilter"),
+  bl4DeliveryLevel: document.getElementById("bl4DeliveryLevel"),
+  bl4DeliveryStatus: document.getElementById("bl4DeliveryStatus"),
+  bl4Detail: document.getElementById("bl4Detail"),
+  bl4ImportSelectedBtn: document.getElementById("bl4ImportSelectedBtn"),
+  bl4ListingFilter: document.getElementById("bl4ListingFilter"),
+  bl4ManufacturerFilter: document.getElementById("bl4ManufacturerFilter"),
+  bl4MattmabFilter: document.getElementById("bl4MattmabFilter"),
+  bl4OpenLootlemonBtn: document.getElementById("bl4OpenLootlemonBtn"),
+  bl4Output: document.getElementById("bl4Output"),
+  bl4OverrideLevel: document.getElementById("bl4OverrideLevel"),
+  bl4RarityFilter: document.getElementById("bl4RarityFilter"),
+  bl4ReloadBtn: document.getElementById("bl4ReloadBtn"),
+  bl4Rows: document.getElementById("bl4Rows"),
+  bl4SearchBtn: document.getElementById("bl4SearchBtn"),
+  bl4SearchInput: document.getElementById("bl4SearchInput"),
+  bl4SelectAllBtn: document.getElementById("bl4SelectAllBtn"),
+  bl4Serial: document.getElementById("bl4Serial"),
+  bl4SetTargetBtn: document.getElementById("bl4SetTargetBtn"),
+  bl4RefreshPlayersBtn: document.getElementById("bl4RefreshPlayersBtn"),
+  bl4Status: document.getElementById("bl4Status"),
+  bl4TargetSelect: document.getElementById("bl4TargetSelect"),
+  bl4TargetSummary: document.getElementById("bl4TargetSummary"),
+  bl4TypeFilter: document.getElementById("bl4TypeFilter"),
+  bl4ValidateBtn: document.getElementById("bl4ValidateBtn"),
   boostOutput: document.getElementById("boostOutput"),
   boostSerialLevel: document.getElementById("boostSerialLevel"),
   boostSerialOverride: document.getElementById("boostSerialOverride"),
@@ -116,6 +148,15 @@ const state = {
   autoInventoryInFlight: false,
   autoInventoryLastMessage: "",
   autoInventoryTimer: null,
+  bl4ActiveId: "",
+  bl4CatalogWarnings: [],
+  bl4ConfirmedId: "",
+  bl4ConfirmedSerial: "",
+  bl4Entries: [],
+  bl4FilteredEntries: [],
+  bl4ResultFilter: "All",
+  bl4SearchQuery: "",
+  bl4SelectedIds: new Set(),
   bridgeOnline: false,
   bookmarkActiveId: "",
   bookmarkConfirmedId: "",
@@ -360,12 +401,14 @@ function renderPlayers(status = {}) {
 
   fillSelect(els.targetSelect);
   fillSelect(els.bookmarkTargetSelect);
+  fillSelect(els.bl4TargetSelect);
 
   const selectedPlayer = state.players.find((player) => String(playerValue(player)) === String(state.selectedTarget));
   const text = `Selected target: ${selectedPlayer ? playerLabel(selectedPlayer) : state.selectedTarget || "none"}`;
   const kind = state.selectedTarget ? "ok" : "warning";
   setLine(els.targetSummary, text, kind);
   setLine(els.bookmarkTargetSummary, text, kind);
+  setLine(els.bl4TargetSummary, text, kind);
 }
 
 async function bridgeStatus() {
@@ -402,12 +445,14 @@ async function setTarget(value) {
     state.selectedTarget = "";
     setLine(els.targetSummary, "Selected target: none", "warning");
     setLine(els.bookmarkTargetSummary, "Selected target: none", "warning");
+    setLine(els.bl4TargetSummary, "Selected target: none", "warning");
     updateSerialState();
     return null;
   }
 
   setLine(els.targetSummary, `Setting target ${target}...`, "warning");
   setLine(els.bookmarkTargetSummary, `Setting target ${target}...`, "warning");
+  setLine(els.bl4TargetSummary, `Setting target ${target}...`, "warning");
   const result = await bridgeAction("set_target_player", { target_player: target }, 10000);
   setOutput(els.statusOutput, result);
   const ok = Boolean(result && result.data && result.data.ok);
@@ -418,6 +463,7 @@ async function setTarget(value) {
     const message = resultMessage(result) || "Target update failed.";
     setLine(els.targetSummary, message, "bad");
     setLine(els.bookmarkTargetSummary, message, "bad");
+    setLine(els.bl4TargetSummary, message, "bad");
     updateSerialState();
   }
   return result;
@@ -626,11 +672,29 @@ function bookmarkSummarySerial(serial) {
 
 function normalizeBookmarkForRenderer(row = {}) {
   const now = bookmarkNow();
+  const tags = Array.isArray(row.tags)
+    ? row.tags.map((tag) => String(tag || "").trim()).filter(Boolean)
+    : String(row.tags || "").split(/[;,|]/g).map((tag) => tag.trim()).filter(Boolean);
   return {
     id: String(row.id || bookmarkId()).trim(),
     name: String(row.name || "Untitled Serial").trim() || "Untitled Serial",
     group: String(row.group || "Default").trim() || "Default",
     serial: String(row.serial || "").trim(),
+    source: String(row.source || "").trim(),
+    listing: String(row.listing || "").trim(),
+    type: String(row.type || "").trim(),
+    manufacturer: String(row.manufacturer || "").trim(),
+    rarity: String(row.rarity || "").trim(),
+    creator: String(row.creator || "").trim(),
+    classification: String(row.classification || "").trim(),
+    url: String(row.url || "").trim(),
+    tags,
+    notes: String(row.notes || "").trim(),
+    mattmab_validator: String(row.mattmab_validator || row.mattmab_result || "").trim(),
+    mattmab_validator_detail: String(row.mattmab_validator_detail || "").trim(),
+    decoded_identity: row.decoded_identity && typeof row.decoded_identity === "object" && !Array.isArray(row.decoded_identity)
+      ? { ...row.decoded_identity }
+      : {},
     created_at: String(row.created_at || now),
     updated_at: String(row.updated_at || now)
   };
@@ -936,6 +1000,541 @@ async function sendBookmarkSerial(mode) {
   } else {
     setBookmarkStatus(`Delivery failed: ${message}`, "bad");
   }
+}
+
+function setBl4Status(message, kind = "warning") {
+  setLine(els.bl4Status, message, kind);
+}
+
+function setBl4DeliveryStatus(message, kind = "warning") {
+  setLine(els.bl4DeliveryStatus, message, kind);
+}
+
+function bl4EntryId(row) {
+  return String(row && row.id ? row.id : "");
+}
+
+function activeBl4Entry() {
+  return state.bl4Entries.find((row) => bl4EntryId(row) === state.bl4ActiveId) || null;
+}
+
+function bl4TagText(row) {
+  return Array.isArray(row.tags) ? row.tags.join(", ") : String(row.tags || "");
+}
+
+function bl4DecodedText(row) {
+  const identity = row && row.decoded_identity && typeof row.decoded_identity === "object" ? row.decoded_identity : {};
+  return Object.entries(identity).map(([key, value]) => `${key} ${value}`).join(" ");
+}
+
+function bl4SearchBlob(row) {
+  return [
+    row.name,
+    row.serial,
+    row.source,
+    row.listing,
+    row.type,
+    row.manufacturer,
+    row.rarity,
+    row.creator,
+    row.classification,
+    row.mattmab_validator,
+    row.notes,
+    row.url,
+    bl4TagText(row),
+    bl4DecodedText(row)
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function bl4MattmabLabel(value) {
+  const key = String(value || "UNCHECKED").toUpperCase();
+  if (key === "PASS" || key === "LEGIT") return "Legit";
+  if (key === "FAIL" || key === "MODDED") return "Modded";
+  if (key === "ERROR") return "Error";
+  return "Unchecked";
+}
+
+function bl4MattmabKind(value) {
+  const label = bl4MattmabLabel(value);
+  if (label === "Legit") return "ok";
+  if (label === "Modded") return "warning";
+  if (label === "Error") return "bad";
+  return "warning";
+}
+
+function bl4SelectedEntries() {
+  const selected = state.bl4Entries.filter((row) => state.bl4SelectedIds.has(bl4EntryId(row)));
+  if (selected.length) return selected;
+  const active = activeBl4Entry();
+  return active ? [active] : [];
+}
+
+function bl4ValidSerialEntries(entries) {
+  return entries.filter((row) => !serialValidationMessage(row.serial));
+}
+
+function fillBl4Filter(selectNode, values, currentValue = "All") {
+  if (!selectNode) return;
+  const previous = currentValue || getValue(selectNode) || "All";
+  selectNode.innerHTML = "";
+  ["All", ...(values || [])].forEach((value) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    selectNode.appendChild(option);
+  });
+  const hasPrevious = Array.from(selectNode.options).some((option) => option.value === previous);
+  selectNode.value = hasPrevious ? previous : "All";
+}
+
+function populateBl4Filters(filters = {}) {
+  fillBl4Filter(els.bl4ListingFilter, filters.listings || []);
+  fillBl4Filter(els.bl4TypeFilter, filters.types || []);
+  fillBl4Filter(els.bl4ManufacturerFilter, filters.manufacturers || []);
+  fillBl4Filter(els.bl4RarityFilter, filters.rarities || []);
+  fillBl4Filter(els.bl4CreatorFilter, filters.creators || []);
+  fillBl4Filter(els.bl4MattmabFilter, ["Legit", "Modded", "Error", "Unchecked"]);
+}
+
+function bl4ListingMatches(row, value) {
+  if (!value || value === "All") return true;
+  const wanted = value.toLowerCase();
+  const tags = Array.isArray(row.tags) ? row.tags.map((tag) => String(tag).toLowerCase()) : [];
+  return [
+    row.listing,
+    row.source,
+    row.classification
+  ].some((item) => String(item || "").toLowerCase() === wanted)
+    || tags.includes(wanted)
+    || (wanted === "modded" && (String(row.classification || "").toLowerCase() === "modded" || tags.includes("modded")));
+}
+
+function bl4MattmabMatches(row, value) {
+  if (!value || value === "All") return true;
+  return bl4MattmabLabel(row.mattmab_validator).toLowerCase() === value.toLowerCase();
+}
+
+function bl4FilterValue(selectNode) {
+  return getValue(selectNode) || "All";
+}
+
+function filteredBl4Entries() {
+  const terms = (state.bl4SearchQuery || "").toLowerCase().split(/\s+/).filter(Boolean);
+  const listing = bl4FilterValue(els.bl4ListingFilter);
+  const type = bl4FilterValue(els.bl4TypeFilter);
+  const manufacturer = bl4FilterValue(els.bl4ManufacturerFilter);
+  const rarity = bl4FilterValue(els.bl4RarityFilter);
+  const creator = bl4FilterValue(els.bl4CreatorFilter);
+  const mattmab = bl4FilterValue(els.bl4MattmabFilter);
+  const resultFilter = state.bl4ResultFilter || "All";
+
+  return state.bl4Entries.filter((row) => {
+    const termOk = terms.every((term) => bl4SearchBlob(row).includes(term));
+    const listingOk = bl4ListingMatches(row, listing);
+    const typeOk = type === "All" || String(row.type || "") === type;
+    const manufacturerOk = manufacturer === "All" || String(row.manufacturer || "") === manufacturer;
+    const rarityOk = rarity === "All" || String(row.rarity || "") === rarity;
+    const creatorOk = creator === "All" || String(row.creator || "") === creator;
+    const mattmabOk = bl4MattmabMatches(row, mattmab);
+    const resultOk = bl4MattmabMatches(row, resultFilter);
+    return termOk && listingOk && typeOk && manufacturerOk && rarityOk && creatorOk && mattmabOk && resultOk;
+  });
+}
+
+function formatBl4Detail(row) {
+  if (!row) return "Select a BL4 code.";
+  const identity = row.decoded_identity && typeof row.decoded_identity === "object" ? row.decoded_identity : {};
+  const identityLines = Object.keys(identity).length
+    ? Object.entries(identity).map(([key, value]) => `  ${key}: ${value}`)
+    : ["  Not available in catalog."];
+  return [
+    `Name: ${row.name || ""}`,
+    `Source: ${row.source || ""}`,
+    `Listing: ${row.listing || ""}`,
+    `Classification: ${row.classification || ""}`,
+    `Mattmab Result: ${bl4MattmabLabel(row.mattmab_validator)}`,
+    `Type: ${row.type || ""}`,
+    `Manufacturer: ${row.manufacturer || ""}`,
+    `Rarity: ${row.rarity || ""}`,
+    `Creator: ${row.creator || ""}`,
+    `Tags: ${bl4TagText(row) || ""}`,
+    row.url ? `Lootlemon URL: ${row.url}` : "",
+    row.notes ? `Notes: ${row.notes}` : "",
+    "Decoded identity:",
+    ...identityLines
+  ].filter((line) => line !== "").join("\n");
+}
+
+function clearBl4Detail(message = "Select a BL4 code.") {
+  state.bl4ActiveId = "";
+  state.bl4ConfirmedId = "";
+  state.bl4ConfirmedSerial = "";
+  setOutput(els.bl4Detail, message);
+  setTextValue(els.bl4Serial, "");
+  setTextValue(els.bl4Breakdown, "");
+  setBl4DeliveryStatus("Validate / Confirm Active before delivery. Delivery sends one active code at a time.", "warning");
+}
+
+async function loadBl4Breakdown(row) {
+  if (!row || !row.serial) return;
+  const activeId = bl4EntryId(row);
+  setTextValue(els.bl4Breakdown, "Generating parts breakdown locally...");
+  if (!window.msbt || typeof window.msbt.bl4PartsBreakdown !== "function") {
+    setTextValue(els.bl4Breakdown, "Parts breakdown helper is not available in this Electron build.");
+    return;
+  }
+  const result = await window.msbt.bl4PartsBreakdown(row.serial);
+  if (state.bl4ActiveId !== activeId) return;
+  if (result && result.ok) {
+    setTextValue(els.bl4Breakdown, result.breakdown || "No parts breakdown returned.");
+  } else {
+    setTextValue(els.bl4Breakdown, result && result.message ? `Parts breakdown unavailable: ${result.message}` : "Parts breakdown unavailable.");
+  }
+}
+
+function selectBl4Entry(id) {
+  const row = state.bl4Entries.find((item) => bl4EntryId(item) === id);
+  if (!row) {
+    clearBl4Detail();
+    renderBl4Codes();
+    return;
+  }
+  state.bl4ActiveId = id;
+  state.bl4ConfirmedId = "";
+  state.bl4ConfirmedSerial = "";
+  setOutput(els.bl4Detail, formatBl4Detail(row));
+  setTextValue(els.bl4Serial, row.serial || "");
+  setBl4DeliveryStatus("Active code changed. Validate / Confirm Active before delivery.", "warning");
+  loadBl4Breakdown(row);
+  renderBl4Codes();
+}
+
+function renderBl4Codes() {
+  state.bl4FilteredEntries = filteredBl4Entries();
+  state.bl4SelectedIds = new Set(
+    Array.from(state.bl4SelectedIds).filter((id) => state.bl4Entries.some((row) => bl4EntryId(row) === id))
+  );
+  const selectedCount = state.bl4SelectedIds.size;
+  setLine(
+    els.bl4Count,
+    `${state.bl4FilteredEntries.length} shown / ${state.bl4Entries.length} merged | ${selectedCount} selected`,
+    state.bl4FilteredEntries.length ? "ok" : "warning"
+  );
+
+  if (!els.bl4Rows) return;
+  els.bl4Rows.innerHTML = "";
+  if (!state.bl4Entries.length) {
+    const empty = document.createElement("div");
+    empty.className = "dev-empty-row";
+    empty.textContent = "No BL4 catalog is loaded.";
+    els.bl4Rows.appendChild(empty);
+    clearBl4Detail("No BL4 catalog is loaded.");
+    return;
+  }
+  if (!state.bl4FilteredEntries.length) {
+    const empty = document.createElement("div");
+    empty.className = "dev-empty-row";
+    empty.textContent = "No BL4 codes match the current filters. Use Search, All Results, or loosen a dropdown filter.";
+    els.bl4Rows.appendChild(empty);
+    clearBl4Detail("No BL4 code is visible with the current filters.");
+    return;
+  }
+
+  if (state.bl4ActiveId && !state.bl4FilteredEntries.some((row) => bl4EntryId(row) === state.bl4ActiveId)) {
+    clearBl4Detail("The active code is hidden by the current filters.");
+  }
+
+  const maxRows = 320;
+  state.bl4FilteredEntries.slice(0, maxRows).forEach((row) => {
+    const id = bl4EntryId(row);
+    const item = document.createElement("div");
+    item.className = `bl4-code-row${id === state.bl4ActiveId ? " active" : ""}`;
+    item.addEventListener("click", () => selectBl4Entry(id));
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = state.bl4SelectedIds.has(id);
+    checkbox.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (checkbox.checked) {
+        state.bl4SelectedIds.add(id);
+      } else {
+        state.bl4SelectedIds.delete(id);
+      }
+      renderBl4Codes();
+    });
+
+    const body = document.createElement("div");
+    body.className = "bl4-row-body";
+    const title = document.createElement("div");
+    title.className = "bl4-row-title";
+    title.textContent = row.name || "Unnamed Code";
+    const meta = document.createElement("div");
+    meta.className = "bl4-row-meta";
+    meta.textContent = [
+      bl4MattmabLabel(row.mattmab_validator),
+      row.listing,
+      row.type,
+      row.rarity,
+      row.creator
+    ].filter(Boolean).join(" | ");
+    const serial = document.createElement("div");
+    serial.className = "bl4-row-serial";
+    serial.textContent = row.serial;
+    body.append(title, meta, serial);
+    item.append(checkbox, body);
+    els.bl4Rows.appendChild(item);
+  });
+
+  if (state.bl4FilteredEntries.length > maxRows) {
+    const note = document.createElement("div");
+    note.className = "dev-empty-row";
+    note.textContent = `Showing first ${maxRows} row(s). Narrow Search or filters for more.`;
+    els.bl4Rows.appendChild(note);
+  }
+
+  if (!state.bl4ActiveId && state.bl4FilteredEntries.length) {
+    selectBl4Entry(bl4EntryId(state.bl4FilteredEntries[0]));
+  }
+}
+
+function applyBl4Search() {
+  state.bl4SearchQuery = getValue(els.bl4SearchInput);
+  renderBl4Codes();
+}
+
+function setBl4ResultFilter(value) {
+  state.bl4ResultFilter = value || "All";
+  renderBl4Codes();
+}
+
+function selectAllBl4Visible() {
+  state.bl4FilteredEntries.forEach((row) => state.bl4SelectedIds.add(bl4EntryId(row)));
+  renderBl4Codes();
+  setBl4Status(`Selected ${state.bl4FilteredEntries.length} visible BL4 code(s).`, "ok");
+}
+
+function clearBl4Selection() {
+  state.bl4SelectedIds.clear();
+  renderBl4Codes();
+  setBl4Status("Cleared selected BL4 code rows.", "ok");
+}
+
+async function copySelectedBl4Serials() {
+  const entries = bl4ValidSerialEntries(bl4SelectedEntries());
+  const serials = entries.map((row) => row.serial).join("\n");
+  await copyText(serials, els.bl4Status, `${entries.length} BL4 serial(s)`);
+}
+
+async function copyBl4Serial() {
+  const row = activeBl4Entry();
+  await copyText(row ? row.serial : "", els.bl4Status, "BL4 serial");
+}
+
+async function copyBl4Breakdown() {
+  await copyText(getValue(els.bl4Breakdown), els.bl4Status, "BL4 parts breakdown");
+}
+
+function openBl4Lootlemon() {
+  const row = activeBl4Entry();
+  if (!row || !row.url) {
+    setBl4Status("This BL4 code does not have a Lootlemon URL in the local catalog.", "warning");
+    return;
+  }
+  window.msbt.openExternal(row.url);
+  setBl4Status("Opened Lootlemon link.", "ok");
+}
+
+function bl4BookmarkPayload(row) {
+  return normalizeBookmarkForRenderer({
+    name: row.name || "BL4 Code",
+    group: row.type || row.listing || "BL4 Codes",
+    serial: row.serial,
+    source: row.source,
+    listing: row.listing,
+    type: row.type,
+    manufacturer: row.manufacturer,
+    rarity: row.rarity,
+    creator: row.creator,
+    classification: row.classification,
+    url: row.url,
+    tags: row.tags,
+    notes: row.notes,
+    mattmab_validator: row.mattmab_validator,
+    mattmab_validator_detail: row.mattmab_validator_detail,
+    decoded_identity: row.decoded_identity
+  });
+}
+
+async function addBl4EntriesToBookmarks(entries, successPrefix) {
+  const rows = bl4ValidSerialEntries(entries);
+  if (!rows.length) {
+    setBl4Status("No valid @U serials were available to bookmark.", "warning");
+    return;
+  }
+  const now = bookmarkNow();
+  const existingBySerial = new Map(state.bookmarks.map((row) => [String(row.serial || "").toLowerCase(), row]));
+  let added = 0;
+  let updated = 0;
+  const next = state.bookmarks.slice();
+  rows.forEach((row) => {
+    const payload = bl4BookmarkPayload(row);
+    const key = payload.serial.toLowerCase();
+    const existing = existingBySerial.get(key);
+    if (existing) {
+      updated += 1;
+      const merged = {
+        ...existing,
+        ...payload,
+        id: existing.id,
+        name: existing.name || payload.name,
+        group: existing.group || payload.group,
+        created_at: existing.created_at || payload.created_at,
+        updated_at: now
+      };
+      const index = next.findIndex((item) => item.id === existing.id);
+      if (index >= 0) next[index] = merged;
+      existingBySerial.set(key, merged);
+      return;
+    }
+    added += 1;
+    next.push(payload);
+    existingBySerial.set(key, payload);
+  });
+  state.bookmarks = next;
+  const saved = await persistSerialBookmarks(`${successPrefix}: ${added} added, ${updated} updated.`);
+  if (saved) {
+    setBl4Status(`${successPrefix}: ${added} added, ${updated} updated.`, "ok");
+  }
+}
+
+async function bookmarkActiveBl4Code() {
+  const row = activeBl4Entry();
+  if (!row) {
+    setBl4Status("Select a BL4 code to bookmark.", "warning");
+    return;
+  }
+  await addBl4EntriesToBookmarks([row], "Bookmarked selected BL4 code locally");
+}
+
+async function importSelectedBl4Bookmarks() {
+  await addBl4EntriesToBookmarks(bl4SelectedEntries(), "Imported selected BL4 code(s) to bookmarks");
+}
+
+async function validateBl4ActiveSerial() {
+  const row = activeBl4Entry();
+  if (!row) {
+    setBl4DeliveryStatus("Select a BL4 code first.", "warning");
+    return false;
+  }
+  const validation = serialValidationMessage(row.serial);
+  if (validation) {
+    state.bl4ConfirmedId = "";
+    state.bl4ConfirmedSerial = "";
+    setBl4DeliveryStatus(validation, "bad");
+    return false;
+  }
+
+  setBl4DeliveryStatus("Validating active BL4 serial locally...", "warning");
+  const result = await window.msbt.validatorBasic(row.serial);
+  const first = Array.isArray(result && result.results) && result.results.length ? result.results[0] : {};
+  const status = String(first.status || result.status || "").toUpperCase();
+  const validatorReturned = result && result.ok && result.total === 1;
+  const mapped = !validatorReturned
+    ? "UNCHECKED"
+    : status === "LEGIT"
+      ? "PASS"
+      : status === "ERROR"
+        ? "ERROR"
+        : "FAIL";
+  state.bl4Entries = state.bl4Entries.map((item) => (
+    bl4EntryId(item) === bl4EntryId(row)
+      ? { ...item, mattmab_validator: mapped, mattmab_validator_detail: (result && result.summary) || first.message || "" }
+      : item
+  ));
+  state.bl4ConfirmedId = bl4EntryId(row);
+  state.bl4ConfirmedSerial = row.serial;
+  const summary = validatorReturned
+    ? (result.summary || first.message || `Validation complete: ${status || "serial parsed"}.`)
+    : "Local validator unavailable or inconclusive; confirmed exact @U serial format only.";
+  const clean = validatorReturned && status === "LEGIT";
+  const warningPrefix = validatorReturned && status === "ERROR"
+    ? "Confirmed format, validator returned Error"
+    : "Confirmed with warning";
+  setBl4DeliveryStatus(clean ? `Confirmed: ${summary}` : `${warningPrefix}: ${summary}`, clean ? "ok" : "warning");
+  setOutput(els.bl4Output, validatorReturned ? (result.output || summary) : { ok: true, message: summary, validator: result });
+  renderBl4Codes();
+  return true;
+}
+
+async function sendBl4Serial(mode) {
+  const row = activeBl4Entry();
+  if (!row) {
+    setBl4DeliveryStatus("Select a BL4 code before delivery.", "warning");
+    return;
+  }
+  const validation = serialValidationMessage(row.serial);
+  if (validation) {
+    setBl4DeliveryStatus(validation, "bad");
+    return;
+  }
+  if (state.bl4ConfirmedId !== bl4EntryId(row) || state.bl4ConfirmedSerial !== row.serial) {
+    setBl4DeliveryStatus("Validate / Confirm Active before delivery. Confirmation clears when the active code changes.", "warning");
+    return;
+  }
+  if (mode === "selected" && !state.selectedTarget) {
+    setBl4DeliveryStatus("Select and set a BL4 Codes target before Deliver Selected.", "warning");
+    return;
+  }
+
+  const destination = mode === "selected" ? "selected target" : mode === "all" ? "all players" : "non-host players";
+  const confirmed = window.confirm(`Deliver "${row.name || "selected BL4 code"}" to ${destination}?`);
+  if (!confirmed) {
+    setBl4DeliveryStatus("BL4 delivery cancelled.", "warning");
+    return;
+  }
+
+  const result = await sendSerialPayload(
+    mode,
+    row.serial,
+    boolFromSelect(els.bl4OverrideLevel),
+    getInt(els.bl4DeliveryLevel, 1, 60, 60),
+    els.bl4Output
+  );
+  if (!result) return;
+  const message = resultMessage(result);
+  setBl4DeliveryStatus(actionSucceeded(result) ? `Delivery accepted: ${message}` : `Delivery failed: ${message}`, actionSucceeded(result) ? "ok" : "bad");
+}
+
+async function loadBl4Catalog() {
+  if (!window.msbt || typeof window.msbt.loadBl4Catalog !== "function") {
+    setBl4Status("BL4 catalog loader is not available in this Electron build.", "bad");
+    return;
+  }
+  setBl4Status("Loading BL4 Codes catalog from local resources...", "warning");
+  const result = await window.msbt.loadBl4Catalog();
+  if (!result || !result.ok) {
+    state.bl4Entries = [];
+    renderBl4Codes();
+    setBl4Status(result && result.message ? result.message : "BL4 Codes catalog could not be loaded.", "bad");
+    return;
+  }
+  state.bl4Entries = Array.isArray(result.entries) ? result.entries : [];
+  state.bl4CatalogWarnings = Array.isArray(result.warnings) ? result.warnings : [];
+  state.bl4SelectedIds.clear();
+  state.bl4ConfirmedId = "";
+  state.bl4ConfirmedSerial = "";
+  populateBl4Filters(result.filters || {});
+  renderBl4Codes();
+  if (state.bl4Entries.length && !state.bl4ActiveId) {
+    selectBl4Entry(bl4EntryId(state.bl4Entries[0]));
+  }
+  const counts = result.counts || {};
+  const warnings = state.bl4CatalogWarnings.length ? ` ${state.bl4CatalogWarnings.join(" ")}` : "";
+  setBl4Status(
+    `Loaded ${counts.merged || state.bl4Entries.length} local BL4 code(s): ${counts.lootlemon || 0} Lootlemon, ${counts.custom || 0} Custom Static, ${counts.gzo || 0} GZO.${warnings}`,
+    state.bl4CatalogWarnings.length ? "warning" : "ok"
+  );
 }
 
 async function checkUpdates() {
@@ -2234,6 +2833,43 @@ function wireEvents() {
     button.addEventListener("click", () => sendBookmarkSerial(button.dataset.bookmarkSendMode));
   });
 
+  els.bl4ReloadBtn.addEventListener("click", loadBl4Catalog);
+  els.bl4SearchBtn.addEventListener("click", applyBl4Search);
+  els.bl4SearchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applyBl4Search();
+    }
+  });
+  [
+    els.bl4ListingFilter,
+    els.bl4TypeFilter,
+    els.bl4ManufacturerFilter,
+    els.bl4RarityFilter,
+    els.bl4CreatorFilter,
+    els.bl4MattmabFilter
+  ].forEach((selectNode) => {
+    if (selectNode) selectNode.addEventListener("change", renderBl4Codes);
+  });
+  document.querySelectorAll("[data-bl4-result-filter]").forEach((button) => {
+    button.addEventListener("click", () => setBl4ResultFilter(button.dataset.bl4ResultFilter));
+  });
+  els.bl4SelectAllBtn.addEventListener("click", selectAllBl4Visible);
+  els.bl4ClearSelectionBtn.addEventListener("click", clearBl4Selection);
+  els.bl4CopySelectedBtn.addEventListener("click", copySelectedBl4Serials);
+  els.bl4CopySerialBtn.addEventListener("click", copyBl4Serial);
+  els.bl4CopyBreakdownBtn.addEventListener("click", copyBl4Breakdown);
+  els.bl4BookmarkBtn.addEventListener("click", bookmarkActiveBl4Code);
+  els.bl4ImportSelectedBtn.addEventListener("click", importSelectedBl4Bookmarks);
+  els.bl4OpenLootlemonBtn.addEventListener("click", openBl4Lootlemon);
+  els.bl4ValidateBtn.addEventListener("click", validateBl4ActiveSerial);
+  els.bl4TargetSelect.addEventListener("change", () => setTarget(els.bl4TargetSelect.value));
+  els.bl4SetTargetBtn.addEventListener("click", () => setTarget(els.bl4TargetSelect.value));
+  els.bl4RefreshPlayersBtn.addEventListener("click", bridgeStatus);
+  document.querySelectorAll("[data-bl4-send-mode]").forEach((button) => {
+    button.addEventListener("click", () => sendBl4Serial(button.dataset.bl4SendMode));
+  });
+
   els.validatorBasicBtn.addEventListener("click", validateBasic);
   els.validatorBulkBtn.addEventListener("click", validateBulk);
   els.validatorClearBtn.addEventListener("click", clearValidator);
@@ -2324,7 +2960,7 @@ function wireEvents() {
 async function init() {
   wireEvents();
   syncDevSpawnerAdvancedControls();
-  await Promise.all([loadItemPools(), loadTravelResources(), loadDevSpawnerCatalog(), loadDevSpawnerFavorites(), loadSerialBookmarks()]);
+  await Promise.all([loadItemPools(), loadTravelResources(), loadDevSpawnerCatalog(), loadDevSpawnerFavorites(), loadSerialBookmarks(), loadBl4Catalog()]);
   await bridgeStatus();
   await checkUpdates();
 }
