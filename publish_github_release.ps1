@@ -90,6 +90,9 @@ $latestYmlText = Get-Content -Raw $latestYml
 if ($latestYmlText -notmatch "(?m)^version:\s*$([regex]::Escape($PackageVersion))\s*$") {
     throw "latest.yml version does not match package version $PackageVersion."
 }
+if (-not (Test-Path $ManifestPath)) {
+    throw "Release update manifest not found: $ManifestPath. Run .\package_external_beta.ps1 first."
+}
 
 $ElectronAssets = @($ElectronInstaller)
 $blockMap = "$ElectronInstaller.blockmap"
@@ -97,6 +100,7 @@ if (Test-Path $blockMap) {
     $ElectronAssets += $blockMap
 }
 $ElectronAssets += $latestYml
+$ElectronAssets += $ManifestPath
 
 $shortCommit = ""
 try {

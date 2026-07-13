@@ -1953,12 +1953,15 @@ function renderUpdateCards(info) {
   const installed = data.installedSdkmod || {};
   const localManifest = data.localManifest || data.local || {};
   const remotePackage = remote.package_version || "";
+  const remoteElectron = remote.electron_version || remote.app_version || remote.package_version || "";
+  const electronNeedsUpdate = Boolean(data.electronUpdateAvailable);
+  const packageNeedsUpdate = Boolean(data.packageUpdateAvailable || data.updateAvailable);
 
   setLine(els.electronAppCurrent, `Current: app ${versionValue(data.appVersion)} | package ${versionValue(data.packageVersion || localManifest.package_version)}`);
   setLine(
     els.electronAppLatest,
-    remotePackage ? `Latest package: ${remotePackage}` : "Latest package: not checked yet.",
-    data.updateAvailable ? "warning" : ""
+    remoteElectron ? `Latest app: ${remoteElectron}${remotePackage ? ` | package ${remotePackage}` : ""}` : "Latest app: not checked yet.",
+    electronNeedsUpdate ? "warning" : packageNeedsUpdate ? "warning" : ""
   );
   setLine(
     els.electronAppInstaller,
@@ -2055,12 +2058,18 @@ async function checkUpdates() {
   }
   const localVersion = result.local && result.local.package_version ? result.local.package_version : "unknown";
   const remoteVersion = result.remote && result.remote.package_version ? result.remote.package_version : "unknown";
+  const localAppVersion = result.appVersion || "unknown";
+  const remoteAppVersion = result.remote && (result.remote.electron_version || result.remote.app_version || result.remote.package_version)
+    ? (result.remote.electron_version || result.remote.app_version || result.remote.package_version)
+    : "unknown";
   const updaterStatus = String(result.updater && result.updater.status ? result.updater.status : "");
   if (["available", "downloaded", "progress"].includes(updaterStatus)) return;
-  if (result.updateAvailable) {
-    setLine(els.updateSummary, `Update available: ${localVersion} -> ${remoteVersion}`, "warning");
+  if (result.electronUpdateAvailable) {
+    setLine(els.updateSummary, `Electron update available: ${localAppVersion} -> ${remoteAppVersion}`, "warning");
+  } else if (result.packageUpdateAvailable) {
+    setLine(els.updateSummary, `SDK/resources update available: ${localVersion} -> ${remoteVersion}`, "warning");
   } else {
-    setLine(els.updateSummary, `Current version looks up to date: ${localVersion}`, "ok");
+    setLine(els.updateSummary, `Current Electron app looks up to date: ${localAppVersion}`, "ok");
   }
 }
 

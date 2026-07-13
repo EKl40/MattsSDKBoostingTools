@@ -35,7 +35,8 @@ const execFileAsync = promisify(execFile);
 const SOURCE_ROOT = path.resolve(__dirname, "..");
 const RESOURCE_ROOT = app.isPackaged ? process.resourcesPath : SOURCE_ROOT;
 const DEFAULT_BRIDGE = "http://127.0.0.1:49774";
-const LATEST_MANIFEST_URL = "https://raw.githubusercontent.com/funkyoushift/MattsSDKBoostingTools/main/releases/latest.json";
+const LATEST_MANIFEST_URL = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/latest/download/latest.json";
+const FALLBACK_LATEST_MANIFEST_URL = "https://raw.githubusercontent.com/funkyoushift/MattsSDKBoostingTools/main/releases/latest.json";
 const SMOKE_MODE = process.argv.includes("--smoke");
 const MATT_EDITOR_INDEX = path.join(
   RESOURCE_ROOT,
@@ -236,6 +237,67 @@ function configureAutoUpdater() {
   });
 
   return true;
+}
+
+function normalizeVersion(value) {
+  return String(value || "").trim().replace(/^v/i, "");
+}
+
+function parsePublicVersion(value) {
+  const text = normalizeVersion(value);
+  const match = text.match(/^(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta)\.(\d+))?$/i);
+  if (!match) return null;
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4] ? String(match[4]).toLowerCase() : "",
+    prereleaseNumber: match[5] ? Number(match[5]) : 0
+  };
+}
+
+function comparePublicVersions(left, right) {
+  const a = parsePublicVersion(left);
+  const b = parsePublicVersion(right);
+  if (!a || !b) return normalizeVersion(left).localeCompare(normalizeVersion(right));
+  for (const key of ["major", "minor", "patch"]) {
+    if (a[key] !== b[key]) return a[key] > b[key] ? 1 : -1;
+  }
+  if (a.prerelease !== b.prerelease) {
+    if (!a.prerelease) return 1;
+    if (!b.prerelease) return -1;
+    const order = { alpha: 0, beta: 1 };
+    const aOrder = Object.prototype.hasOwnProperty.call(order, a.prerelease) ? order[a.prerelease] : -1;
+    const bOrder = Object.prototype.hasOwnProperty.call(order, b.prerelease) ? order[b.prerelease] : -1;
+    if (aOrder !== bOrder) return aOrder > bOrder ? 1 : -1;
+  }
+  if (a.prereleaseNumber !== b.prereleaseNumber) return a.prereleaseNumber > b.prereleaseNumber ? 1 : -1;
+  return 0;
+}
+
+function isNewerPublicVersion(remote, local) {
+  if (!remote || !local) return false;
+  return comparePublicVersions(remote, local) > 0;
+}
+
+async function fetchLatestManifest() {
+  const urls = [LATEST_MANIFEST_URL, FALLBACK_LATEST_MANIFEST_URL];
+  let lastError = null;
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      const text = await response.text();
+      if (!response.ok) {
+        lastError = new Error(`Update manifest request failed (${response.status}) from ${url}`);
+        continue;
+      }
+      const manifest = text ? JSON.parse(text) : {};
+      return { response, manifest, url };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("Update manifest could not be loaded.");
 }
 
 function createWindow() {
@@ -840,11 +902,13 @@ ipcMain.handle("app:checkUpdates", async () => {
   const local = versionInfo.localManifest || {};
 
   try {
-    const response = await fetch(LATEST_MANIFEST_URL, { cache: "no-store" });
-    const text = await response.text();
-    const remote = text ? JSON.parse(text) : {};
-    const localVersion = String(local.package_version || "");
+    const { response, manifest: remote, url: manifestUrl } = await fetchLatestManifest();
+    const localVersion = String(local.package_version || versionInfo.packageVersion || "");
     const remoteVersion = String(remote.package_version || "");
+    const localAppVersion = String(versionInfo.appVersion || "");
+    const remoteElectronVersion = String(remote.electron_version || remote.app_version || remote.package_version || "");
+    const packageUpdateAvailable = Boolean(remoteVersion && localVersion && remoteVersion !== localVersion);
+    const electronUpdateAvailable = Boolean(remoteElectronVersion && localAppVersion && isNewerPublicVersion(remoteElectronVersion, localAppVersion));
     let updater = latestUpdateState;
     if (app.isPackaged) {
       try {
@@ -877,7 +941,10 @@ ipcMain.handle("app:checkUpdates", async () => {
       bundledSdkmod: versionInfo.bundledSdkmod,
       installedSdkmod: versionInfo.installedSdkmod,
       updater,
-      updateAvailable: Boolean(remoteVersion && localVersion && remoteVersion !== localVersion),
+      manifestUrl,
+      packageUpdateAvailable,
+      electronUpdateAvailable,
+      updateAvailable: packageUpdateAvailable || electronUpdateAvailable,
       latestUrl: remote.electron_installer_download_url || remote.download_url || "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/latest",
       electronInstallerUrl: remote.electron_installer_download_url || "",
       manualZipUrl: remote.manual_zip_download_url || remote.download_url || ""

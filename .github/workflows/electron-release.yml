@@ -45,15 +45,15 @@ jobs:
             throw "Tag '$actualTag' does not match package version '$expectedTag'."
           }
 
-      - name: Build Electron installer
-        shell: pwsh
-        run: .\build_electron_beta.ps1 -Installer
-
       - name: Build portable package
         shell: pwsh
         run: |
           .\build_external_exe.ps1
           .\package_external_beta.ps1
+
+      - name: Build Electron installer
+        shell: pwsh
+        run: .\build_electron_beta.ps1 -Installer
 
       - name: Create Electron unpacked ZIP
         shell: pwsh
@@ -71,6 +71,7 @@ jobs:
             ".\dist_electron\MattsSDKBoostingTools-Setup-v$version.exe",
             ".\dist_electron\MattsSDKBoostingTools-Setup-v$version.exe.blockmap",
             ".\dist_electron\latest.yml",
+            ".\releases\latest.json",
             ".\MattsSDKBoostingTools-Portable-v$version.zip",
             ".\dist_electron\MattsSDKBoostingTools-v$version-win-x64.zip"
           )
@@ -136,6 +137,7 @@ jobs:
             ".\dist_electron\MattsSDKBoostingTools-Setup-v$version.exe",
             ".\dist_electron\MattsSDKBoostingTools-Setup-v$version.exe.blockmap",
             ".\dist_electron\latest.yml",
+            ".\releases\latest.json",
             ".\MattsSDKBoostingTools-Portable-v$version.zip",
             ".\dist_electron\MattsSDKBoostingTools-v$version-win-x64.zip"
           )
