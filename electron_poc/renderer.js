@@ -254,7 +254,7 @@ const state = {
   filteredStations: [],
   itemPools: [],
   latestInstallerUrl: "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/latest",
-  latestDownloadUrl: "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/latest/download/MSBT_External_Beta.zip",
+  latestDownloadUrl: "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/latest",
   manualZipDownloadUrl: "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/latest/download/MSBT_External_Beta.zip",
   latestUpdateState: null,
   players: [],
