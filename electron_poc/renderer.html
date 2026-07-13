@@ -3,14 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MSBT Electron Milestone Shell</title>
+  <title>MSBT Electron Beta</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="app-header">
     <div>
       <h1>Matt's SDK Boosting Tools</h1>
-      <p>Electron milestone shell. Tkinter remains the beta app while these tabs catch up.</p>
+      <p>MSBT Electron Beta. Feature parity is still in progress; live actions use the SDK bridge.</p>
+      <p id="appVersionLine" class="muted-line">Loading version info...</p>
     </div>
     <div class="header-actions">
       <button id="statusBtn">Refresh Status</button>
@@ -457,6 +458,7 @@
             <div>
               <h2>Embedded Matt Editor</h2>
               <p>Build inside the editor, choose a target, then send from the MSBT panel or the shell controls.</p>
+              <p class="muted-line">Beta note: Matt Editor currently requires a working Python installation. Bundled Python support is planned.</p>
             </div>
             <div class="button-row">
               <button id="loadEditorBtn">Load Editor</button>
@@ -661,12 +663,28 @@
 
     <section id="tab-updates" class="tab-panel">
       <section class="panel purple">
-        <h2>Update Check</h2>
+        <h2>Electron Beta Updates</h2>
+        <div id="versionSummary" class="status-line">Loading local version info...</div>
         <div id="updateSummary" class="status-line">No update check yet.</div>
         <div class="button-row wrap">
+          <button id="updateDownloadBtn">Download Electron Update</button>
+          <button id="updateInstallBtn">Restart / Install Downloaded Update</button>
           <button id="downloadBtn">Open Latest Download</button>
         </div>
         <pre id="updateOutput">Checks GitHub Releases metadata without changing files.</pre>
+      </section>
+
+      <section class="panel cyan">
+        <h2>SDK Mod Install / Update</h2>
+        <p>Installs only MattsSDKBoostingTools.sdkmod. It will not touch unrelated mods.</p>
+        <label for="sdkModsPath">Borderlands 4 sdk_mods folder</label>
+        <input id="sdkModsPath" type="text" placeholder="C:\Program Files (x86)\Steam\steamapps\common\Borderlands 4\sdk_mods">
+        <div class="button-row wrap">
+          <button id="detectSdkModsBtn">Detect Folder</button>
+          <button id="browseSdkModsBtn">Browse Folder</button>
+          <button id="installSdkModBtn">Install / Update SDK Mod</button>
+        </div>
+        <div id="sdkInstallSummary" class="status-line">No SDK mod install action has run yet.</div>
       </section>
     </section>
   </main>

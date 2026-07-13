@@ -1,29 +1,18 @@
-# MSBT Electron Milestone Shell
+# MSBT Electron Beta
 
-This folder is an isolated Electron test shell. It does not replace the current Tkinter app.
+This folder contains the Electron beta shell for Matt's SDK Boosting Tools. The goal is to replace the older Tkinter beta app while keeping the same SDK bridge boundary: Electron talks to the game only through the local MSBT HTTP bridge.
 
 Current beta replacement priorities are tracked in [../docs/ELECTRON_BETA_ROADMAP.md](../docs/ELECTRON_BETA_ROADMAP.md).
 
-The first goals are:
-
-1. Can Electron talk to the existing SDK bridge over HTTP?
-2. Can Electron show player/target state without importing SDK/game modules?
-3. Can Electron check the current GitHub release manifest?
-4. Can Electron render the vendored Mattmab editor assets inside the app shell through the local Matt editor host?
-5. Can Electron send one confirmed `@U` serial through the existing bridge actions?
-6. Can Electron exercise the first batch of core MSBT tabs without changing the Tkinter beta app?
-
-## Run
+## Run From Source
 
 From this folder:
 
 ```powershell
 npm.cmd install
-.\node_modules\electron\dist\electron.exe . --smoke
+npm.cmd run smoke
 npm.cmd start
 ```
-
-If PowerShell blocks `npm`, use `npm.cmd` exactly as shown.
 
 If Electron says it failed to install correctly, approve its install script and rebuild it:
 
@@ -32,45 +21,60 @@ npm.cmd approve-scripts electron
 npm.cmd rebuild electron
 ```
 
-## What This POC Tests
+## Build Locally
 
-- `GET /status`
-- `POST /action` with `set_target_player`
-- `POST /action` with `give_serial_selected`
-- `POST /action` with `give_serial_all`
-- `POST /action` with `give_serial_nonhost`
-- GitHub release manifest check through `releases/latest.json`
-- local Matt editor iframe loading from the hosted `matt_editor_host.py` URL, which injects `matt_editor_adapter.js`
-- Boosting bridge actions for target, serial delivery, XP, currency, inventory, quick max, chest/bank/debug helpers
-- local Serial Tools conversion and parts breakdown through the existing standalone helper
-- local Validator basic/bulk checks through the existing standalone helper
-- local item pool browser backed by `resources/item_pools.json`, with live spawn through `spawn_itempool`
-- local map/station browser backed by `resources/travelmaps_flat.json` and `resources/travelstations.json`, with live travel through the bridge
-- local activity/status view
+From the repository root:
 
-## Manual Test Flow
+```powershell
+.\build_electron_beta.ps1
+```
 
-1. Launch BL4 with the current MSBT SDK mod.
-2. Run `npm.cmd start`.
-3. Confirm Boosting shows online players.
-4. Pick a Target Player and click Set Target, or click Use First Player.
-5. Click Check Updates and confirm it reads GitHub release metadata.
-6. Click Load Editor and confirm the Matt editor appears inside Electron with the MSBT Delivery panel injected.
-7. Build or load an item in the editor.
-8. Choose a target if needed, then click Send. If exactly one serial is visible, MSBT auto-detects and confirms it.
-9. Use Detect Serial From Editor / Confirm Serial only when you want to verify manually or choose between multiple detected serials.
-10. Open Serial Tools and confirm the known `@U` test serial converts locally.
-11. Open Validator and confirm the same serial returns a local validation result.
-12. Open Item Pool Spawning and confirm the local list filters.
-13. Open Map Travel and confirm maps and stations load from local resources.
-14. Test live delivery/spawn/travel only with known-safe values.
+This rebuilds `MattsSDKBoostingTools.sdkmod`, runs Electron syntax checks, and creates an unpacked Electron app under `dist_electron`.
 
-## What This POC Does Not Do Yet
+To build the Windows installer:
 
-- It does not replace Tkinter.
-- It does not package an Electron installer.
-- It does not auto-update; it only reports update availability.
-- It still starts the existing Python Matt editor host from Electron for this milestone. A future Electron rebuild can port that host/API layer to Node.
-- It does not yet provide the full MSBT tab set.
-- It does not change the Tkinter beta app.
-- It does not change the SDK mod or bridge.
+```powershell
+.\build_electron_beta.ps1 -Installer
+```
+
+Installer builds use `electron-builder` with NSIS. They do not publish to GitHub automatically.
+
+## Updates
+
+The Electron beta includes a GitHub Releases update foundation:
+
+- current app/package/SDK/resource versions are visible in the app;
+- Check Updates reads the public release manifest and, in packaged builds, asks `electron-updater` to check the GitHub release feed;
+- downloads and restart/install are user-triggered;
+- there is no embedded GitHub token;
+- user data remains in Electron's `app.getPath("userData")` location across updates.
+
+Production update testing requires a GitHub Release containing the Electron builder artifacts such as the installer, `latest.yml`, and block map files. The app does not auto-publish those files.
+
+## SDK Mod Install
+
+Installer builds bundle the current `MattsSDKBoostingTools.sdkmod`. The Updates tab provides an explicit Install / Update SDK Mod action that:
+
+- copies only `MattsSDKBoostingTools.sdkmod`;
+- preserves unrelated mods;
+- refuses to run while `Borderlands4.exe` is open;
+- supports auto-detecting the common Steam `sdk_mods` folder or pasting another `sdk_mods` path.
+
+BLImGui remains optional. ActorScriptDeployer is not bundled by this installer slice.
+
+## Current Local Features
+
+- Boosting tab bridge actions.
+- Serial Tools local conversion and parts breakdown.
+- Serial Bookmarks local browser and bridge delivery.
+- BL4 Codes local catalog/search/details/bookmarks/advisory validation and bridge delivery.
+- Validator local basic/bulk checks.
+- Item Pool and Map Travel local resource browsers with bridge actions.
+- Dev Spawner character workflow through the verified SDK 03 bridge path.
+- Matt editor hosted inside Electron through the existing Python helper.
+
+## Known Beta Limits
+
+- The Matt editor host and some local serial/validator helpers still require a usable Python runtime unless a future build bundles Python beside the Electron app.
+- The Electron installer/update path is a foundation, not a published release flow. Do not claim update delivery is production-proven until it is tested against a controlled GitHub Release.
+- Electron is still catching up to every Tkinter tab and workflow.

@@ -11,6 +11,7 @@ node_modules/
 # Build/package outputs
 build/
 dist/
+dist_electron/
 MSBT_External_Beta/
 MSBT_External_Beta*/
 MSBT_External_Beta.zip
@@ -21,6 +22,8 @@ MSBT_External_Beta.zip
 !releases/latest.json
 
 # Local logs and scratch reports
+_inspect/
+_install_backups/
 *.log
 unrealsdk.log
 *_AUDIT.md

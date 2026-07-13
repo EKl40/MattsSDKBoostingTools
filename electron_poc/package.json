@@ -1,17 +1,82 @@
 {
-  "name": "msbt-electron-poc",
-  "version": "0.1.0",
+  "name": "matts-sdk-boosting-tools-electron-beta",
+  "version": "0.2.0",
   "private": true,
-  "description": "Small Electron proof of concept for MSBT bridge + Matt editor shell testing.",
+  "description": "Electron beta shell for Matt's SDK Boosting Tools.",
+  "author": "FunkYouSHiFT",
   "main": "main.js",
   "scripts": {
-    "start": "node_modules\\electron\\dist\\electron.exe .",
-    "check": "node --check main.js && node --check preload.js && node --check renderer.js && node --check dev_spawner_favorites_store.js && node --check serial_bookmarks_store.js && node --check bl4_codes_catalog.js"
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "check": "node --check main.js && node --check preload.js && node --check renderer.js && node --check dev_spawner_favorites_store.js && node --check serial_bookmarks_store.js && node --check bl4_codes_catalog.js",
+    "pack": "electron-builder --dir --publish never",
+    "dist:win": "electron-builder --win nsis --publish never"
+  },
+  "build": {
+    "appId": "com.funkyoushift.msbt.electronbeta",
+    "productName": "Matt's SDK Boosting Tools",
+    "executableName": "MattsSDKBoostingTools",
+    "artifactName": "MSBT-Electron-Beta-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "../dist_electron"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/.cache/**",
+      "!*.log"
+    ],
+    "extraResources": [
+      {
+        "from": "../external_app/v22_parts_codes_fixed",
+        "to": "external_app/v22_parts_codes_fixed",
+        "filter": [
+          "**/*",
+          "!__pycache__/**",
+          "!**/__pycache__/**",
+          "!*.pyc",
+          "!resources/user_*.json"
+        ]
+      },
+      {
+        "from": "../MattsSDKBoostingTools.sdkmod",
+        "to": "sdkmod/MattsSDKBoostingTools.sdkmod"
+      },
+      {
+        "from": "../releases/latest.json",
+        "to": "releases/latest.json"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "../external_app/v22_parts_codes_fixed/resources/app_icon_electron.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Matt's SDK Boosting Tools"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "funkyoushift",
+        "repo": "MattsSDKBoostingTools",
+        "releaseType": "release"
+      }
+    ]
   },
   "devDependencies": {
-    "electron": "^37.2.0"
+    "electron": "^37.2.0",
+    "electron-builder": "^26.15.3"
   },
   "allowScripts": {
     "electron@37.10.3": true
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

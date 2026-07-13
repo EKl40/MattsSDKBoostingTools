@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const fs = require("fs/promises");
 const path = require("path");
-const { spawn } = require("child_process");
+const { execFile, spawn } = require("child_process");
 const { pathToFileURL } = require("url");
+const { promisify } = require("util");
 const {
   favoritesFilePath,
   readFavorites,
@@ -17,26 +18,46 @@ const {
   loadBl4Catalog
 } = require("./bl4_codes_catalog");
 
-const REPO_ROOT = path.resolve(__dirname, "..");
+function reportFatalStartupError(kind, error) {
+  const message = error && error.stack ? error.stack : String(error);
+  console.error(`[MSBT Electron] ${kind}: ${message}`);
+  if (process.argv.includes("--smoke")) {
+    process.exit(1);
+  }
+}
+
+process.on("uncaughtException", (error) => reportFatalStartupError("uncaughtException", error));
+process.on("unhandledRejection", (error) => reportFatalStartupError("unhandledRejection", error));
+
+const execFileAsync = promisify(execFile);
+const SOURCE_ROOT = path.resolve(__dirname, "..");
+const RESOURCE_ROOT = app.isPackaged ? process.resourcesPath : SOURCE_ROOT;
 const DEFAULT_BRIDGE = "http://127.0.0.1:49774";
 const LATEST_MANIFEST_URL = "https://raw.githubusercontent.com/funkyoushift/MattsSDKBoostingTools/main/releases/latest.json";
 const SMOKE_MODE = process.argv.includes("--smoke");
 const MATT_EDITOR_INDEX = path.join(
-  REPO_ROOT,
+  RESOURCE_ROOT,
   "external_app",
   "v22_parts_codes_fixed",
   "matt_editor",
   "index.html"
 );
-const EXTERNAL_APP_DIR = path.join(REPO_ROOT, "external_app", "v22_parts_codes_fixed");
+const EXTERNAL_APP_DIR = path.join(RESOURCE_ROOT, "external_app", "v22_parts_codes_fixed");
 const RESOURCE_DIR = path.join(EXTERNAL_APP_DIR, "resources");
+const LOCAL_MANIFEST_PATH = app.isPackaged
+  ? path.join(RESOURCE_ROOT, "releases", "latest.json")
+  : path.join(SOURCE_ROOT, "releases", "latest.json");
+const BUNDLED_SDKMOD_PATH = app.isPackaged
+  ? path.join(RESOURCE_ROOT, "sdkmod", "MattsSDKBoostingTools.sdkmod")
+  : path.join(SOURCE_ROOT, "MattsSDKBoostingTools.sdkmod");
 const ALLOWED_RESOURCE_FILES = new Set([
   "item_pools.json",
   "travelmaps_flat.json",
   "travelstations.json",
   "version_info.json"
 ]);
-const LOCAL_VENV_PYTHON = path.join(REPO_ROOT, ".venv", "Scripts", "python.exe");
+const LOCAL_VENV_PYTHON = path.join(SOURCE_ROOT, ".venv", "Scripts", "python.exe");
+const BUNDLED_PYTHON = path.join(RESOURCE_ROOT, "python", "python.exe");
 const MATT_HOST_START_TIMEOUT_MS = 12000;
 const SDK_LOG_CANDIDATES = [
   process.env.MSBT_UNREALSDK_LOG,
@@ -66,9 +87,82 @@ const SDK_LOG_CANDIDATES = [
   )
 ].filter(Boolean);
 const SDK_LOG_FILTER = /MattsSDKBoostingTools|ActorScriptDeployer|ASD_|dev_spawner|spawnai|ERR\||WARN\||Traceback|Exception|did not report/i;
+const BL4_SDK_MODS_CANDIDATES = [
+  path.join(
+    process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)",
+    "Steam",
+    "steamapps",
+    "common",
+    "Borderlands 4",
+    "sdk_mods"
+  ),
+  path.join(
+    process.env.ProgramFiles || "C:\\Program Files",
+    "Steam",
+    "steamapps",
+    "common",
+    "Borderlands 4",
+    "sdk_mods"
+  )
+].filter(Boolean);
 
 let mattHostProcess = null;
 let mattHostUrl = "";
+let autoUpdater = null;
+let autoUpdaterConfigured = false;
+let latestUpdateState = {
+  status: "idle",
+  message: "No Electron updater check has run yet.",
+  updateInfo: null,
+  progress: null,
+  error: ""
+};
+
+function updateState(patch) {
+  latestUpdateState = { ...latestUpdateState, ...patch };
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send("app:updateState", latestUpdateState);
+  }
+}
+
+function configureAutoUpdater() {
+  if (autoUpdaterConfigured) return Boolean(autoUpdater);
+  autoUpdaterConfigured = true;
+
+  try {
+    ({ autoUpdater } = require("electron-updater"));
+    autoUpdater.autoDownload = false;
+    autoUpdater.allowDowngrade = false;
+  } catch (error) {
+    updateState({
+      status: "error",
+      message: "Electron updater is not available in this build.",
+      error: String(error && error.message ? error.message : error)
+    });
+    return false;
+  }
+
+  autoUpdater.on("checking-for-update", () => {
+    updateState({ status: "checking", message: "Checking Electron installer updates...", error: "" });
+  });
+  autoUpdater.on("update-available", (info) => {
+    updateState({ status: "available", message: `Electron update available: ${info && info.version ? info.version : "new version"}.`, updateInfo: info, error: "" });
+  });
+  autoUpdater.on("update-not-available", (info) => {
+    updateState({ status: "none", message: "No Electron installer update is available.", updateInfo: info, error: "" });
+  });
+  autoUpdater.on("download-progress", (progress) => {
+    updateState({ status: "progress", message: "Downloading Electron update...", progress, error: "" });
+  });
+  autoUpdater.on("update-downloaded", (info) => {
+    updateState({ status: "downloaded", message: "Electron update downloaded. Restart when ready to install.", updateInfo: info, error: "" });
+  });
+  autoUpdater.on("error", (error) => {
+    updateState({ status: "error", message: "Electron update check failed.", error: String(error && error.message ? error.message : error) });
+  });
+
+  return true;
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -115,6 +209,135 @@ async function requestBridge({ method = "GET", path: route = "/status", payload 
 }
 
 ipcMain.handle("bridge:request", async (_event, args) => requestBridge(args || {}));
+
+async function fileExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readJsonFile(filePath) {
+  return JSON.parse(await fs.readFile(filePath, "utf8"));
+}
+
+async function safeFileHash(filePath) {
+  try {
+    const { createHash } = require("crypto");
+    const data = await fs.readFile(filePath);
+    return createHash("sha256").update(data).digest("hex");
+  } catch {
+    return "";
+  }
+}
+
+async function localVersionInfo() {
+  let manifest = {};
+  try {
+    manifest = await readJsonFile(LOCAL_MANIFEST_PATH);
+  } catch (error) {
+    manifest = { package_version: "unknown", error: String(error && error.message ? error.message : error) };
+  }
+  return {
+    ok: true,
+    appVersion: app.getVersion(),
+    electronVersion: process.versions.electron,
+    packageVersion: manifest.package_version || manifest.app_version || app.getVersion(),
+    sdkmodVersion: manifest.sdkmod_version || "unavailable",
+    resourcesVersion: manifest.resources_version || "unavailable",
+    sdkRequired: manifest.sdk_required || "oak2-mod-manager v0.3",
+    sdkRequiredUrl: manifest.sdk_required_url || "https://github.com/bl-sdk/oak2-mod-manager/releases/tag/v0.3",
+    packaged: app.isPackaged,
+    localManifest: manifest,
+    bundledSdkmod: {
+      available: await fileExists(BUNDLED_SDKMOD_PATH),
+      sha256: await safeFileHash(BUNDLED_SDKMOD_PATH)
+    },
+    updateState: latestUpdateState
+  };
+}
+
+ipcMain.handle("app:getVersionInfo", async () => localVersionInfo());
+
+async function isBorderlandsRunning() {
+  if (process.platform !== "win32") return false;
+  try {
+    const { stdout } = await execFileAsync("tasklist.exe", ["/FI", "IMAGENAME eq Borderlands4.exe", "/FO", "CSV", "/NH"], {
+      windowsHide: true
+    });
+    return /Borderlands4\.exe/i.test(stdout || "");
+  } catch {
+    return false;
+  }
+}
+
+function normalizeSdkModsPath(rawPath) {
+  const value = String(rawPath || "").trim();
+  if (!value) return "";
+  return path.resolve(value);
+}
+
+async function sdkModsPathInfo(rawPath) {
+  const sdkModsPath = normalizeSdkModsPath(rawPath);
+  if (!sdkModsPath) return { ok: false, message: "No sdk_mods path was provided." };
+  const baseName = path.basename(sdkModsPath).toLowerCase();
+  if (baseName !== "sdk_mods") {
+    return { ok: false, path: sdkModsPath, message: "Choose the Borderlands 4 sdk_mods folder." };
+  }
+  const exists = await fileExists(sdkModsPath);
+  return {
+    ok: exists,
+    path: sdkModsPath,
+    destination: path.join(sdkModsPath, "MattsSDKBoostingTools.sdkmod"),
+    message: exists ? "sdk_mods folder found." : "sdk_mods folder does not exist."
+  };
+}
+
+ipcMain.handle("app:detectSdkMods", async () => {
+  for (const candidate of BL4_SDK_MODS_CANDIDATES) {
+    const info = await sdkModsPathInfo(candidate);
+    if (info.ok) return info;
+  }
+  return {
+    ok: false,
+    path: "",
+    message: "Could not auto-detect Borderlands 4 sdk_mods. Paste or browse to the sdk_mods folder."
+  };
+});
+
+ipcMain.handle("app:browseSdkMods", async () => {
+  const result = await dialog.showOpenDialog({
+    title: "Choose the Borderlands 4 sdk_mods folder",
+    properties: ["openDirectory"]
+  });
+  if (result.canceled || !result.filePaths.length) {
+    return { ok: false, canceled: true, message: "No sdk_mods folder selected." };
+  }
+  return sdkModsPathInfo(result.filePaths[0]);
+});
+
+ipcMain.handle("app:installSdkMod", async (_event, rawPath) => {
+  const sourceExists = await fileExists(BUNDLED_SDKMOD_PATH);
+  if (!sourceExists) {
+    return { ok: false, message: "Bundled MattsSDKBoostingTools.sdkmod was not found in this app build." };
+  }
+  if (await isBorderlandsRunning()) {
+    return { ok: false, message: "Borderlands4.exe is running. Close the game before installing or updating the SDK mod." };
+  }
+  const info = await sdkModsPathInfo(rawPath);
+  if (!info.ok) return info;
+  await fs.mkdir(info.path, { recursive: true });
+  await fs.copyFile(BUNDLED_SDKMOD_PATH, info.destination);
+  return {
+    ok: true,
+    path: info.path,
+    destination: info.destination,
+    sha256: await safeFileHash(info.destination),
+    message: "MattsSDKBoostingTools.sdkmod installed/updated. Restart Borderlands 4 if it was open."
+  };
+});
 
 ipcMain.handle("app:readResourceJson", async (_event, resourceName) => {
   const name = path.basename(String(resourceName || ""));
@@ -279,7 +502,7 @@ ipcMain.handle("app:validatorBulk", async (_event, text) => {
 function pythonCandidates() {
   const out = [];
   if (process.env.MSBT_PYTHON) out.push(process.env.MSBT_PYTHON);
-  out.push(LOCAL_VENV_PYTHON, "python", "py");
+  out.push(app.isPackaged ? BUNDLED_PYTHON : LOCAL_VENV_PYTHON, "python", "py");
   return Array.from(new Set(out.filter(Boolean)));
 }
 
@@ -430,13 +653,8 @@ ipcMain.handle("app:mattEditorUrl", async () => {
 });
 
 ipcMain.handle("app:checkUpdates", async () => {
-  let local = {};
-  const localManifestPath = path.join(REPO_ROOT, "releases", "latest.json");
-  try {
-    local = JSON.parse(await fs.readFile(localManifestPath, "utf8"));
-  } catch (error) {
-    local = { package_version: "unknown", error: String(error && error.message ? error.message : error) };
-  }
+  const versionInfo = await localVersionInfo();
+  const local = versionInfo.localManifest || {};
 
   try {
     const response = await fetch(LATEST_MANIFEST_URL, { cache: "no-store" });
@@ -444,10 +662,35 @@ ipcMain.handle("app:checkUpdates", async () => {
     const remote = text ? JSON.parse(text) : {};
     const localVersion = String(local.package_version || "");
     const remoteVersion = String(remote.package_version || "");
+    let updater = latestUpdateState;
+    if (app.isPackaged) {
+      try {
+        if (configureAutoUpdater()) {
+          updateState({ status: "checking", message: "Checking Electron installer updates...", error: "" });
+          const updaterResult = await autoUpdater.checkForUpdates();
+          updater = { ...latestUpdateState, updateInfo: updaterResult && updaterResult.updateInfo ? updaterResult.updateInfo : latestUpdateState.updateInfo };
+        } else {
+          updater = latestUpdateState;
+        }
+      } catch (error) {
+        updater = {
+          ...latestUpdateState,
+          status: "error",
+          message: "Electron updater check failed.",
+          error: String(error && error.message ? error.message : error)
+        };
+        updateState(updater);
+      }
+    }
     return {
       ok: response.ok,
       local,
       remote,
+      appVersion: app.getVersion(),
+      packageVersion: versionInfo.packageVersion,
+      sdkmodVersion: versionInfo.sdkmodVersion,
+      resourcesVersion: versionInfo.resourcesVersion,
+      updater,
       updateAvailable: Boolean(remoteVersion && localVersion && remoteVersion !== localVersion),
       latestUrl: remote.download_url || "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/latest"
     };
@@ -456,11 +699,44 @@ ipcMain.handle("app:checkUpdates", async () => {
       ok: false,
       local,
       remote: {},
+      appVersion: app.getVersion(),
+      packageVersion: versionInfo.packageVersion,
+      sdkmodVersion: versionInfo.sdkmodVersion,
+      resourcesVersion: versionInfo.resourcesVersion,
+      updater: latestUpdateState,
       updateAvailable: false,
       latestUrl: "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/latest",
       message: String(error && error.message ? error.message : error)
     };
   }
+});
+
+ipcMain.handle("app:downloadUpdate", async () => {
+  if (!app.isPackaged) {
+    return { ok: false, message: "Electron updater downloads are only available in an installed/package build." };
+  }
+  if (!configureAutoUpdater()) {
+    return { ok: false, message: latestUpdateState.message || "Electron updater is not available.", state: latestUpdateState };
+  }
+  try {
+    const result = await autoUpdater.downloadUpdate();
+    return { ok: true, message: "Update download started.", result, state: latestUpdateState };
+  } catch (error) {
+    const message = String(error && error.message ? error.message : error);
+    updateState({ status: "error", message: "Update download failed.", error: message });
+    return { ok: false, message };
+  }
+});
+
+ipcMain.handle("app:quitAndInstallUpdate", async () => {
+  if (latestUpdateState.status !== "downloaded") {
+    return { ok: false, message: "No downloaded Electron update is ready to install." };
+  }
+  if (!configureAutoUpdater()) {
+    return { ok: false, message: latestUpdateState.message || "Electron updater is not available.", state: latestUpdateState };
+  }
+  autoUpdater.quitAndInstall(false, true);
+  return { ok: true, message: "Restarting to install update." };
 });
 
 ipcMain.handle("app:openExternal", async (_event, url) => {
@@ -469,12 +745,20 @@ ipcMain.handle("app:openExternal", async (_event, url) => {
 });
 
 app.whenReady().then(() => {
+  app.setAppUserModelId("com.funkyoushift.msbt.electronbeta");
   if (SMOKE_MODE) {
-    console.log(JSON.stringify({ ok: true, electron: process.versions.electron, bridge: DEFAULT_BRIDGE }));
+    console.log(JSON.stringify({
+      ok: true,
+      appVersion: app.getVersion(),
+      packaged: app.isPackaged,
+      electron: process.versions.electron,
+      bridge: DEFAULT_BRIDGE
+    }));
     app.exit(0);
     return;
   }
 
+  configureAutoUpdater();
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

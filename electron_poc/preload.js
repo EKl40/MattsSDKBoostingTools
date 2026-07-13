@@ -2,8 +2,20 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("msbt", {
   bridgeRequest: (args) => ipcRenderer.invoke("bridge:request", args),
+  browseSdkMods: () => ipcRenderer.invoke("app:browseSdkMods"),
+  detectSdkMods: () => ipcRenderer.invoke("app:detectSdkMods"),
+  downloadUpdate: () => ipcRenderer.invoke("app:downloadUpdate"),
+  getVersionInfo: () => ipcRenderer.invoke("app:getVersionInfo"),
+  installSdkMod: (sdkModsPath) => ipcRenderer.invoke("app:installSdkMod", sdkModsPath),
+  installDownloadedUpdate: () => ipcRenderer.invoke("app:quitAndInstallUpdate"),
   checkUpdates: () => ipcRenderer.invoke("app:checkUpdates"),
   mattEditorUrl: () => ipcRenderer.invoke("app:mattEditorUrl"),
+  onUpdateState: (callback) => {
+    if (typeof callback !== "function") return () => {};
+    const listener = (_event, state) => callback(state);
+    ipcRenderer.on("app:updateState", listener);
+    return () => ipcRenderer.removeListener("app:updateState", listener);
+  },
   serialToolsConvert: (text) => ipcRenderer.invoke("app:serialToolsConvert", text),
   validatorBasic: (text) => ipcRenderer.invoke("app:validatorBasic", text),
   validatorBulk: (text) => ipcRenderer.invoke("app:validatorBulk", text),

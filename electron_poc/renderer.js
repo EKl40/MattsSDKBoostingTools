@@ -2,6 +2,7 @@ const BASE85_RE = /@U[0-9A-Za-z!#$%&()*+\-;<=>?@^_`{\/}~]+/g;
 
 const els = {
   activityOutput: document.getElementById("activityOutput"),
+  appVersionLine: document.getElementById("appVersionLine"),
   autoInventorySizes: document.getElementById("autoInventorySizes"),
   bankSize: document.getElementById("bankSize"),
   backpackSize: document.getElementById("backpackSize"),
@@ -131,7 +132,12 @@ const els = {
   travelStationSearch: document.getElementById("travelStationSearch"),
   travelStationSummary: document.getElementById("travelStationSummary"),
   updateOutput: document.getElementById("updateOutput"),
+  updateDownloadBtn: document.getElementById("updateDownloadBtn"),
+  updateInstallBtn: document.getElementById("updateInstallBtn"),
   updateSummary: document.getElementById("updateSummary"),
+  versionSummary: document.getElementById("versionSummary"),
+  sdkInstallSummary: document.getElementById("sdkInstallSummary"),
+  sdkModsPath: document.getElementById("sdkModsPath"),
   validatorBasicBtn: document.getElementById("validatorBasicBtn"),
   validatorBasicInput: document.getElementById("validatorBasicInput"),
   validatorBulkBtn: document.getElementById("validatorBulkBtn"),
@@ -181,6 +187,7 @@ const state = {
   filteredStations: [],
   itemPools: [],
   latestDownloadUrl: "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/latest/download/MSBT_External_Beta.zip",
+  latestUpdateState: null,
   players: [],
   selectedItemPool: "",
   selectedMap: "",
@@ -1537,22 +1544,129 @@ async function loadBl4Catalog() {
   );
 }
 
+function versionValue(value) {
+  return value === null || value === undefined || value === "" ? "unavailable" : String(value);
+}
+
+function renderVersionInfo(info) {
+  state.versionInfo = info || null;
+  const data = info || {};
+  const parts = [
+    `App ${versionValue(data.appVersion)}`,
+    `package ${versionValue(data.packageVersion)}`,
+    `SDK mod ${versionValue(data.sdkmodVersion)}`,
+    `resources ${versionValue(data.resourcesVersion)}`
+  ];
+  const required = data.sdkRequired ? `Requires ${data.sdkRequired}` : "Requires oak2-mod-manager v0.3";
+  const text = `${parts.join(" | ")} | ${required}`;
+  setLine(els.appVersionLine, text);
+  setLine(els.versionSummary, text, data.bundledSdkmod && data.bundledSdkmod.available ? "ok" : "warning");
+}
+
+async function refreshVersionInfo() {
+  if (!window.msbt || typeof window.msbt.getVersionInfo !== "function") return null;
+  const info = await window.msbt.getVersionInfo();
+  renderVersionInfo(info);
+  if (info && info.updateState) renderUpdateState(info.updateState);
+  return info;
+}
+
+function renderUpdateState(updateState) {
+  state.latestUpdateState = updateState || null;
+  const status = String(updateState && updateState.status ? updateState.status : "idle");
+  const message = updateState && updateState.message ? updateState.message : "No Electron installer update check has run yet.";
+  const progress = updateState && updateState.progress && Number.isFinite(Number(updateState.progress.percent))
+    ? ` (${Number(updateState.progress.percent).toFixed(1)}%)`
+    : "";
+  const error = updateState && updateState.error ? ` ${updateState.error}` : "";
+
+  if (els.updateDownloadBtn) {
+    els.updateDownloadBtn.disabled = status !== "available";
+  }
+  if (els.updateInstallBtn) {
+    els.updateInstallBtn.disabled = status !== "downloaded";
+  }
+
+  if (status === "available") {
+    setLine(els.updateSummary, `${message} Click Download Electron Update when ready.`, "warning");
+  } else if (status === "downloaded") {
+    setLine(els.updateSummary, `${message} Click Restart / Install Downloaded Update when ready.`, "ok");
+  } else if (status === "error") {
+    setLine(els.updateSummary, `${message}${error}`, "bad");
+  } else if (status === "progress") {
+    setLine(els.updateSummary, `${message}${progress}`, "warning");
+  }
+}
+
 async function checkUpdates() {
   setLine(els.updateSummary, "Checking GitHub Releases...", "warning");
+  await refreshVersionInfo();
   const result = await window.msbt.checkUpdates();
   setOutput(els.updateOutput, result);
   state.latestDownloadUrl = result.latestUrl || state.latestDownloadUrl;
+  renderVersionInfo({
+    appVersion: result.appVersion,
+    packageVersion: result.packageVersion,
+    sdkmodVersion: result.sdkmodVersion,
+    resourcesVersion: result.resourcesVersion,
+    sdkRequired: result.local && result.local.sdk_required ? result.local.sdk_required : "oak2-mod-manager v0.3",
+    bundledSdkmod: state.versionInfo && state.versionInfo.bundledSdkmod ? state.versionInfo.bundledSdkmod : {}
+  });
+  if (result.updater) renderUpdateState(result.updater);
   if (!result.ok) {
     setLine(els.updateSummary, result.message || "Update check failed.", "bad");
     return;
   }
   const localVersion = result.local && result.local.package_version ? result.local.package_version : "unknown";
   const remoteVersion = result.remote && result.remote.package_version ? result.remote.package_version : "unknown";
+  const updaterStatus = String(result.updater && result.updater.status ? result.updater.status : "");
+  if (["available", "downloaded", "progress"].includes(updaterStatus)) return;
   if (result.updateAvailable) {
     setLine(els.updateSummary, `Update available: ${localVersion} -> ${remoteVersion}`, "warning");
   } else {
     setLine(els.updateSummary, `Current version looks up to date: ${localVersion}`, "ok");
   }
+}
+
+async function downloadElectronUpdate() {
+  setLine(els.updateSummary, "Requesting Electron update download...", "warning");
+  const result = await window.msbt.downloadUpdate();
+  setOutput(els.updateOutput, result);
+  if (result && result.state) renderUpdateState(result.state);
+  setLine(els.updateSummary, result.message || "Electron update download request finished.", result.ok ? "ok" : "bad");
+}
+
+async function installDownloadedElectronUpdate() {
+  const confirmed = window.confirm("Restart MSBT Electron Beta now and install the downloaded update?");
+  if (!confirmed) return;
+  const result = await window.msbt.installDownloadedUpdate();
+  setOutput(els.updateOutput, result);
+  setLine(els.updateSummary, result.message || "Install request finished.", result.ok ? "ok" : "bad");
+}
+
+async function detectSdkModsFolder() {
+  setLine(els.sdkInstallSummary, "Detecting Borderlands 4 sdk_mods folder...", "warning");
+  const result = await window.msbt.detectSdkMods();
+  if (result && result.path) setTextValue(els.sdkModsPath, result.path);
+  setOutput(els.updateOutput, result);
+  setLine(els.sdkInstallSummary, result.message || "sdk_mods detection finished.", result.ok ? "ok" : "warning");
+}
+
+async function browseSdkModsFolder() {
+  setLine(els.sdkInstallSummary, "Choose the Borderlands 4 sdk_mods folder...", "warning");
+  const result = await window.msbt.browseSdkMods();
+  if (result && result.path) setTextValue(els.sdkModsPath, result.path);
+  setOutput(els.updateOutput, result);
+  setLine(els.sdkInstallSummary, result.message || "sdk_mods folder selection finished.", result.ok ? "ok" : "warning");
+}
+
+async function installBundledSdkMod() {
+  const confirmed = window.confirm("Install or replace only MattsSDKBoostingTools.sdkmod in the selected sdk_mods folder? Borderlands 4 must be closed.");
+  if (!confirmed) return;
+  setLine(els.sdkInstallSummary, "Installing bundled MattsSDKBoostingTools.sdkmod...", "warning");
+  const result = await window.msbt.installSdkMod(getValue(els.sdkModsPath));
+  setOutput(els.updateOutput, result);
+  setLine(els.sdkInstallSummary, result.message || "SDK mod install/update finished.", result.ok ? "ok" : "bad");
 }
 
 async function convertSerialTools() {
@@ -2875,7 +2989,15 @@ function wireEvents() {
   els.validatorClearBtn.addEventListener("click", clearValidator);
 
   document.getElementById("updateBtn").addEventListener("click", checkUpdates);
+  if (els.updateDownloadBtn) els.updateDownloadBtn.addEventListener("click", downloadElectronUpdate);
+  if (els.updateInstallBtn) els.updateInstallBtn.addEventListener("click", installDownloadedElectronUpdate);
   document.getElementById("downloadBtn").addEventListener("click", () => window.msbt.openExternal(state.latestDownloadUrl));
+  const detectSdkModsBtn = document.getElementById("detectSdkModsBtn");
+  if (detectSdkModsBtn) detectSdkModsBtn.addEventListener("click", detectSdkModsFolder);
+  const browseSdkModsBtn = document.getElementById("browseSdkModsBtn");
+  if (browseSdkModsBtn) browseSdkModsBtn.addEventListener("click", browseSdkModsFolder);
+  const installSdkModBtn = document.getElementById("installSdkModBtn");
+  if (installSdkModBtn) installSdkModBtn.addEventListener("click", installBundledSdkMod);
   document.getElementById("repoBtn").addEventListener("click", () => {
     window.msbt.openExternal("https://github.com/funkyoushift/MattsSDKBoostingTools");
   });
@@ -2959,6 +3081,10 @@ function wireEvents() {
 
 async function init() {
   wireEvents();
+  if (window.msbt && typeof window.msbt.onUpdateState === "function") {
+    window.msbt.onUpdateState(renderUpdateState);
+  }
+  await refreshVersionInfo();
   syncDevSpawnerAdvancedControls();
   await Promise.all([loadItemPools(), loadTravelResources(), loadDevSpawnerCatalog(), loadDevSpawnerFavorites(), loadSerialBookmarks(), loadBl4Catalog()]);
   await bridgeStatus();
