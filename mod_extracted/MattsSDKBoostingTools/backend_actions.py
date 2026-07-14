@@ -1672,12 +1672,13 @@ def _serial_with_level_override(serial: str, level: int) -> str:
     return _human_to_serial(new_human)
 
 
-def _serials_with_level_override(serials: list[str], enabled: bool, level: int) -> tuple[list[str], int, str | None]:
+def _serials_with_level_override(serials: list[str], enabled: bool, level: int) -> tuple[list[str], int, list[str]]:
     if not enabled:
-        return list(serials), 0, None
+        return list(serials), 0, []
     level_i = _clamp_int(level, 1, 60)
     out: list[str] = []
     changed = 0
+    failures: list[str] = []
     for i, serial in enumerate(str(s or "").strip() for s in serials):
         if not serial:
             continue
@@ -1685,8 +1686,9 @@ def _serials_with_level_override(serials: list[str], enabled: bool, level: int) 
             out.append(_serial_with_level_override(serial, level_i))
             changed += 1
         except Exception as exc:
-            return list(serials), changed, f"Level override failed on serial #{i + 1}: {exc}"
-    return out, changed, None
+            failures.append(f"serial #{i + 1}: {exc}")
+            continue
+    return out, changed, failures
 
 
 def _host_player_index_value() -> int | None:
@@ -1813,12 +1815,27 @@ def give_serials(text: object, mode: str = "selected", override_level: object = 
         level_i = _clamp_int(level, 1, 60)
     except Exception:
         level_i = 60
-    serials, changed, error = _serials_with_level_override(serials, bool(override_level), level_i)
-    if error:
-        return {"ok": False, "message": error}
+    override_enabled = bool(override_level)
+    original_count = len(serials)
+    serials, changed, override_failures = _serials_with_level_override(serials, override_enabled, level_i)
+    if override_enabled and not serials:
+        detail = "; ".join(override_failures[:4])
+        if len(override_failures) > 4:
+            detail += f"; and {len(override_failures) - 4} more"
+        return {"ok": False, "message": f"Level override failed for all selected serials. Nothing was delivered. {detail}".strip()}
     result = _deliver_serials_with_target(serials, mode, parsed_count=len(expanded))
-    if result.get("ok") and changed:
-        result["message"] = f"{result.get('message', '')} Level override: {changed} serial(s) set to level {level_i}."
+    if result.get("ok") and override_enabled:
+        parts: list[str] = []
+        if changed:
+            parts.append(f"Level override: {changed} serial(s) set to level {level_i}.")
+        if override_failures:
+            skipped = original_count - len(serials)
+            sample = "; ".join(override_failures[:3])
+            if len(override_failures) > 3:
+                sample += f"; and {len(override_failures) - 3} more"
+            parts.append(f"Skipped {skipped} serial(s) that could not be level-overridden ({sample}).")
+        if parts:
+            result["message"] = f"{result.get('message', '')} {' '.join(parts)}"
     return result
 
 

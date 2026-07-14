@@ -1429,7 +1429,7 @@ function bl4DeliveryRowLabel(row, index) {
 
 async function preflightBl4LevelOverride(rows, serialText, deliveryLevel) {
   if (!window.msbt || typeof window.msbt.serialDecodeCheck !== "function") {
-    return true;
+    return { ok: true, rows, serialText, skipped: [] };
   }
 
   setBl4DeliveryStatus(`Checking ${rows.length} BL4 serial(s) for level override...`, "warning");
@@ -1438,25 +1438,39 @@ async function preflightBl4LevelOverride(rows, serialText, deliveryLevel) {
     const message = result && result.message ? result.message : "Local level-override check is unavailable; trying bridge delivery.";
     setBl4DeliveryStatus(message, "warning");
     appendActivity(`BL4 level override preflight unavailable: ${message}`);
-    return true;
+    return { ok: true, rows, serialText, skipped: [] };
   }
 
   const results = Array.isArray(result.results) ? result.results : [];
-  const failures = rows
-    .map((row, index) => ({ item: results[index] || { ok: false, message: "No decode result returned." }, index, row }))
-    .filter((entry) => !entry.item.ok);
-  if (!failures.length) return true;
+  const checked = rows.map((row, index) => ({ item: results[index] || { ok: false, message: "No decode result returned." }, index, row }));
+  const failures = checked.filter((entry) => !entry.item.ok);
+  if (!failures.length) return { ok: true, rows, serialText, skipped: [] };
 
   const shown = failures.slice(0, 8).map((entry) => (
     `${bl4DeliveryRowLabel(entry.row, entry.index)} - ${entry.item.message || "could not decode"}`
   ));
   const extra = failures.length > shown.length ? `\n...and ${failures.length - shown.length} more.` : "";
-  const message = `Level override cannot be applied to ${failures.length} selected code(s). Clear those rows, turn override off, or fix the serial.`;
-  const details = `${message}\n\n${shown.join("\n")}${extra}`;
-  setBl4DeliveryStatus(message, "bad");
+  const deliverableRows = checked.filter((entry) => entry.item.ok).map((entry) => entry.row);
+  if (!deliverableRows.length) {
+    const message = `Level override cannot be applied to any selected code. Nothing will be delivered.`;
+    const details = `${message}\n\n${shown.join("\n")}${extra}`;
+    setBl4DeliveryStatus(message, "bad");
+    setOutput(els.bl4Output, details);
+    appendActivity(`BL4 level override blocked: all ${failures.length} selected serial(s) could not be decoded.`);
+    return { ok: false, rows: [], serialText: "", skipped: failures };
+  }
+
+  const message = `Level override cannot be applied to ${failures.length} selected code(s); those row(s) will be skipped.`;
+  const details = `${message}\n\nSkipped:\n${shown.join("\n")}${extra}\n\nDelivering ${deliverableRows.length} remaining code(s).`;
+  setBl4DeliveryStatus(message, "warning");
   setOutput(els.bl4Output, details);
-  appendActivity(`BL4 level override blocked: ${failures.length} serial(s) could not be decoded.`);
-  return false;
+  appendActivity(`BL4 level override skipped ${failures.length} serial(s); ${deliverableRows.length} still deliverable.`);
+  return {
+    ok: true,
+    rows: deliverableRows,
+    serialText: deliverableRows.map((row) => String(row.serial || "").trim()).join("\n"),
+    skipped: failures
+  };
 }
 
 function fillBl4Filter(selectNode, values, currentValue = "All") {
@@ -1860,17 +1874,27 @@ async function sendBl4Serial(mode) {
     return;
   }
 
-  const serialText = rows.map((row) => String(row.serial || "").trim()).join("\n");
+  let deliveryRows = rows;
+  let serialText = rows.map((row) => String(row.serial || "").trim()).join("\n");
   const overrideLevel = boolFromSelect(els.bl4OverrideLevel);
   const deliveryLevel = getInt(els.bl4DeliveryLevel, 1, 60, 60);
+  let skippedByOverride = [];
   if (overrideLevel) {
-    const preflightOk = await preflightBl4LevelOverride(rows, serialText, deliveryLevel);
-    if (!preflightOk) return;
+    const preflight = await preflightBl4LevelOverride(rows, serialText, deliveryLevel);
+    if (!preflight || !preflight.ok) return;
+    deliveryRows = Array.isArray(preflight.rows) ? preflight.rows : rows;
+    serialText = preflight.serialText || deliveryRows.map((row) => String(row.serial || "").trim()).join("\n");
+    skippedByOverride = Array.isArray(preflight.skipped) ? preflight.skipped : [];
+    if (!deliveryRows.length || !serialText.trim()) {
+      setBl4DeliveryStatus("No BL4 serials remain after level-override filtering.", "bad");
+      return;
+    }
   }
 
   const destination = mode === "selected" ? (state.selectedTarget || "selected target") : mode === "all" ? "all players" : "non-host players";
-  const label = rows.length === 1 ? `"${rows[0].name || "selected BL4 code"}"` : `${rows.length} selected BL4 codes`;
-  const confirmed = window.confirm(`Deliver ${label} to ${destination}?`);
+  const label = deliveryRows.length === 1 ? `"${deliveryRows[0].name || "selected BL4 code"}"` : `${deliveryRows.length} selected BL4 codes`;
+  const skipNote = skippedByOverride.length ? `\n\n${skippedByOverride.length} selected code(s) will be skipped because their level could not be changed.` : "";
+  const confirmed = window.confirm(`Deliver ${label} to ${destination}?${skipNote}`);
   if (!confirmed) {
     setBl4DeliveryStatus("BL4 delivery cancelled.", "warning");
     return;
@@ -1881,12 +1905,12 @@ async function sendBl4Serial(mode) {
     all: "give_serial_all",
     nonhost: "give_serial_nonhost"
   };
-  setBl4DeliveryStatus(`Sending ${rows.length} BL4 serial(s) to ${destination}...`, "warning");
+  setBl4DeliveryStatus(`Sending ${deliveryRows.length} BL4 serial(s) to ${destination}...`, "warning");
   setOutput(
     els.bl4Output,
-    `Sending BL4 code delivery:\nAction: ${actionByMode[mode] || mode}\nDestination: ${destination}\nSerial count: ${rows.length}\n${rows.map((row) => row.name || "Selected BL4 code").join("\n")}`
+    `Sending BL4 code delivery:\nAction: ${actionByMode[mode] || mode}\nDestination: ${destination}\nSerial count: ${deliveryRows.length}\n${deliveryRows.map((row) => row.name || "Selected BL4 code").join("\n")}${skippedByOverride.length ? `\n\nSkipped by level override: ${skippedByOverride.length}` : ""}`
   );
-  appendActivity(`BL4 delivery: sending ${rows.length} serial(s) via ${mode}.`);
+  appendActivity(`BL4 delivery: sending ${deliveryRows.length} serial(s) via ${mode}${skippedByOverride.length ? `; skipped ${skippedByOverride.length}` : ""}.`);
 
   const result = await sendSerialPayload(
     mode,
