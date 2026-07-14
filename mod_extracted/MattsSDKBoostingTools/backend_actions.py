@@ -525,13 +525,33 @@ def _players() -> list[tuple[int, str]]:
         return []
 
 
+def _player_name_key(name: object) -> str:
+    return str(name or "").strip().casefold()
+
+
+def _find_player_by_exact_name(players: list[tuple[int, str]], name: object) -> tuple[int, str] | None:
+    key = _player_name_key(name)
+    if not key:
+        return None
+    for idx, player_name in players:
+        if _player_name_key(player_name) == key:
+            return idx, player_name
+    return None
+
+
 def refresh_players() -> list[dict[str, Any]]:
     """Refresh and return the current party player list."""
     global _selected_player_index, _selected_player_name, _last_refresh_error
     _last_refresh_error = ""
     players = _players()
     if players:
-        if _selected_player_index is not None and any(idx == _selected_player_index for idx, _name in players):
+        name_match = _find_player_by_exact_name(players, _selected_player_name)
+        if name_match is not None:
+            _selected_player_index, _selected_player_name = name_match
+        elif _selected_player_name:
+            _selected_player_index = None
+            _selected_player_name = ""
+        elif _selected_player_index is not None and any(idx == _selected_player_index for idx, _name in players):
             for idx, name in players:
                 if idx == _selected_player_index:
                     _selected_player_name = name
@@ -559,8 +579,11 @@ def set_target_player(index_or_name: object) -> dict[str, Any]:
     """Set selected target by party index, "index|name" payload, or name text."""
     global _selected_player_index, _selected_player_name
     raw = str(index_or_name or "").strip()
+    raw_name = ""
     if "|" in raw:
-        raw = raw.split("|", 1)[0].strip()
+        raw, raw_name = (part.strip() for part in raw.split("|", 1))
+    if not raw:
+        raw = raw_name
     if not raw:
         return {"ok": False, "message": "No target player was selected."}
 
@@ -574,6 +597,22 @@ def set_target_player(index_or_name: object) -> dict[str, Any]:
     if wanted_index is not None:
         for idx, name in players:
             if idx == wanted_index:
+                if raw_name and _player_name_key(raw_name) != _player_name_key(name):
+                    name_match = _find_player_by_exact_name(players, raw_name)
+                    if name_match is not None:
+                        idx, name = name_match
+                        _selected_player_index = idx
+                        _selected_player_name = name
+                        return {
+                            "ok": True,
+                            "message": f"Target player set to {idx}: {name}",
+                            "selected_player": name,
+                            "selected_player_index": idx,
+                        }
+                    return {
+                        "ok": False,
+                        "message": f"Could not find party player {raw_name!r}. Press Refresh Status and try again.",
+                    }
                 _selected_player_index = idx
                 _selected_player_name = name
                 return {

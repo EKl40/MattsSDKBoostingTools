@@ -109,14 +109,14 @@
       <div class="grid two">
         <section class="panel cyan">
           <h2>Target Player</h2>
-          <p>Select which player the selected-player buttons should target.</p>
+          <p>Choose a player from any target dropdown. The app sets that player as the target automatically.</p>
           <div id="bridgeSummary" class="status-line warning">Checking bridge...</div>
           <label for="targetSelect">Target Player</label>
           <select id="targetSelect">
             <option value="">No players loaded</option>
           </select>
           <div class="button-row wrap">
-            <button id="setTargetBtn">Set Target</button>
+            <button id="setTargetBtn" class="hidden">Set Target</button>
             <button id="firstTargetBtn">Use First Player</button>
             <button id="kickTargetBtn" class="danger">Kick Player</button>
           </div>
@@ -402,8 +402,8 @@
               <select id="bookmarkTargetSelect">
                 <option value="">No players loaded</option>
               </select>
-              <button id="bookmarkRefreshPlayersBtn">Refresh Players</button>
-              <button id="bookmarkSetTargetBtn">Set Target</button>
+              <button id="bookmarkRefreshPlayersBtn" class="hidden">Refresh Players</button>
+              <button id="bookmarkSetTargetBtn" class="hidden">Set Target</button>
             </div>
             <div id="bookmarkTargetSummary" class="status-line warning">Selected target: none</div>
             <div class="button-row wrap">
@@ -514,8 +514,8 @@
             <select id="bl4TargetSelect">
               <option value="">No players loaded</option>
             </select>
-            <button id="bl4SetTargetBtn">Set Target</button>
-            <button id="bl4RefreshPlayersBtn">Refresh Players</button>
+            <button id="bl4SetTargetBtn" class="hidden">Set Target</button>
+            <button id="bl4RefreshPlayersBtn" class="hidden">Refresh Players</button>
           </div>
           <div id="bl4TargetSummary" class="status-line warning">Selected target: none</div>
           <div class="inline-fields">

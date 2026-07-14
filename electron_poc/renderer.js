@@ -254,6 +254,8 @@ const state = {
   bl4SearchQuery: "",
   bl4SelectedIds: new Set(),
   bridgeOnline: false,
+  bridgeStatusPollInFlight: false,
+  bridgeStatusPollTimer: null,
   bookmarkActiveId: "",
   bookmarkConfirmedId: "",
   bookmarkConfirmedSerial: "",
@@ -296,6 +298,7 @@ const state = {
   selectedMap: "",
   selectedStation: "",
   selectedTarget: "",
+  selectedTargetName: "",
   startupUpdateNoticeShown: false,
   travelMaps: [],
   travelStations: []
@@ -758,7 +761,7 @@ function playerValue(player) {
   const index = player && player.index;
   const name = player && player.name ? String(player.name) : "";
   if (index === null || index === undefined || index === "") return name;
-  return String(index);
+  return name ? `${index}|${name}` : String(index);
 }
 
 function playerLabel(player) {
@@ -768,17 +771,74 @@ function playerLabel(player) {
   return `${index} | ${name || "Unknown player"}`;
 }
 
+function targetValueFromParts(index, name) {
+  const cleanName = String(name || "").trim();
+  if (index !== null && index !== undefined && index !== "") {
+    return cleanName ? `${index}|${cleanName}` : String(index);
+  }
+  return cleanName;
+}
+
+function targetNameFromValue(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (raw.includes("|")) return raw.split("|").slice(1).join("|").trim();
+  if (/^\d+$/.test(raw)) return "";
+  return raw;
+}
+
+function targetIndexFromValue(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const indexText = raw.includes("|") ? raw.split("|", 1)[0].trim() : raw;
+  return /^\d+$/.test(indexText) ? indexText : "";
+}
+
+function playerNameKey(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function resolveTargetValue(targetValue, players) {
+  const list = Array.isArray(players) ? players : [];
+  const targetName = targetNameFromValue(targetValue);
+  const targetIndex = targetIndexFromValue(targetValue);
+  if (targetName) {
+    const byName = list.find((player) => playerNameKey(player && player.name) === playerNameKey(targetName));
+    if (byName) return playerValue(byName);
+    return "";
+  }
+  if (targetIndex) {
+    const byIndex = list.find((player) => String(player && player.index) === String(targetIndex));
+    if (byIndex) return playerValue(byIndex);
+  }
+  return "";
+}
+
 function selectedTargetFromStatus(status) {
   const index = status && status.selected_player_index;
-  if (index !== null && index !== undefined && index !== "") return String(index);
   const name = status && status.selected_player ? String(status.selected_player) : "";
-  return name;
+  return targetValueFromParts(index, name);
 }
 
 function renderPlayers(status = {}) {
   state.players = Array.isArray(status.players) ? status.players : [];
   const selected = selectedTargetFromStatus(status);
-  if (selected) state.selectedTarget = selected;
+  if (selected) {
+    state.selectedTarget = selected;
+    state.selectedTargetName = targetNameFromValue(selected) || state.selectedTargetName;
+  }
+
+  const resolved = resolveTargetValue(state.selectedTarget, state.players);
+  if (resolved) {
+    state.selectedTarget = resolved;
+    state.selectedTargetName = targetNameFromValue(resolved);
+  } else if (state.selectedTarget && state.players.length) {
+    state.selectedTarget = "";
+    state.selectedTargetName = "";
+  } else if (!state.players.length) {
+    state.selectedTarget = "";
+    state.selectedTargetName = "";
+  }
 
   const fillSelect = (selectNode) => {
     if (!selectNode) return;
@@ -872,6 +932,7 @@ function applyBridgeStatusResult(result, options = {}) {
     state.bridgeOnline = false;
     state.players = [];
     state.selectedTarget = "";
+    state.selectedTargetName = "";
     renderPlayers({});
     setLine(els.bridgeSummary, data.message || "Bridge offline.", "bad");
     updateSerialState();
@@ -898,6 +959,19 @@ async function bridgeStatus(options = {}) {
   applyBridgeStatusResult(result, options);
   await autoApplySavedMovementPresetIfNeeded();
   return result;
+}
+
+function startBridgeStatusPolling() {
+  if (state.bridgeStatusPollTimer) return;
+  state.bridgeStatusPollTimer = window.setInterval(async () => {
+    if (state.bridgeStatusPollInFlight) return;
+    state.bridgeStatusPollInFlight = true;
+    try {
+      await bridgeStatus({ quiet: true });
+    } finally {
+      state.bridgeStatusPollInFlight = false;
+    }
+  }, 3000);
 }
 
 function scheduleSerialDeliveryPoll() {
@@ -939,6 +1013,7 @@ async function setTarget(value) {
   const target = String(value || "").trim();
   if (!target) {
     state.selectedTarget = "";
+    state.selectedTargetName = "";
     setLine(els.targetSummary, "Selected target: none", "warning");
     setLine(els.bookmarkTargetSummary, "Selected target: none", "warning");
     setLine(els.bl4TargetSummary, "Selected target: none", "warning");
@@ -955,8 +1030,10 @@ async function setTarget(value) {
   setOutput(els.statusOutput, result);
   const ok = Boolean(result && result.data && result.data.ok);
   if (ok) {
-    state.selectedTarget = target;
-    await bridgeStatus();
+    const data = result.data || {};
+    state.selectedTarget = targetValueFromParts(data.selected_player_index, data.selected_player) || target;
+    state.selectedTargetName = targetNameFromValue(state.selectedTarget);
+    await bridgeStatus({ quiet: true });
   } else {
     const message = resultMessage(result) || "Target update failed.";
     setLine(els.targetSummary, message, "bad");
@@ -4366,6 +4443,7 @@ async function init() {
   syncDevSpawnerAdvancedControls();
   await Promise.all([loadItemPools(), loadTravelResources(), loadDevSpawnerCatalog(), loadDevSpawnerFavorites(), loadSerialBookmarks(), loadBl4Catalog(), loadMovementSettings()]);
   await bridgeStatus();
+  startBridgeStatusPolling();
   await checkUpdates({ startup: true });
 }
 
