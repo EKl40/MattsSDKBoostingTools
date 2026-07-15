@@ -8,6 +8,11 @@ This folder stores small release metadata tracked in source control.
 - Current MSBT builds require SDK 03 / oak2-mod-manager v0.3: <https://github.com/bl-sdk/oak2-mod-manager/releases/tag/v0.3>
 - Latest beta downloads: <https://github.com/funkyoushift/MattsSDKBoostingTools/releases>
 
-Future Electron release assets should follow the names documented in [../VERSIONING.md](../VERSIONING.md).
+Electron release assets should use clear names:
+
+- `MSBT-Installer-v...exe`
+- `MSBT-Portable-v...-win-x64.zip`
+
+Legacy Tkinter rollback ZIPs are optional and should stay clearly labeled as legacy.
 
 For install instructions, start with the top of the main [README](../README.md).

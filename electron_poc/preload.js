@@ -9,6 +9,9 @@ contextBridge.exposeInMainWorld("msbt", {
   installSdkMod: (sdkModsPath) => ipcRenderer.invoke("app:installSdkMod", sdkModsPath),
   installDownloadedUpdate: () => ipcRenderer.invoke("app:quitAndInstallUpdate"),
   checkUpdates: () => ipcRenderer.invoke("app:checkUpdates"),
+  getUserDataInfo: () => ipcRenderer.invoke("app:getUserDataInfo"),
+  openUserDataFolder: () => ipcRenderer.invoke("app:openUserDataFolder"),
+  exportUserDataBackup: () => ipcRenderer.invoke("app:exportUserDataBackup"),
   mattEditorUrl: () => ipcRenderer.invoke("app:mattEditorUrl"),
   onUpdateState: (callback) => {
     if (typeof callback !== "function") return () => {};
@@ -27,6 +30,8 @@ contextBridge.exposeInMainWorld("msbt", {
   saveSerialBookmarks: (payload) => ipcRenderer.invoke("app:saveSerialBookmarks", payload),
   loadMovementSettings: () => ipcRenderer.invoke("app:loadMovementSettings"),
   saveMovementSettings: (payload) => ipcRenderer.invoke("app:saveMovementSettings", payload),
+  loadRaritySettings: () => ipcRenderer.invoke("app:loadRaritySettings"),
+  saveRaritySettings: (payload) => ipcRenderer.invoke("app:saveRaritySettings", payload),
   loadBl4Catalog: () => ipcRenderer.invoke("app:loadBl4Catalog"),
   bl4PartsBreakdown: (serial) => ipcRenderer.invoke("app:bl4PartsBreakdown", serial),
   readSdkLogTail: (options) => ipcRenderer.invoke("app:readSdkLogTail", options),

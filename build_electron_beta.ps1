@@ -89,7 +89,7 @@ try {
 }
 
 if ($Installer) {
-    $InstallerPath = Join-Path $OutputRoot "MattsSDKBoostingTools-Setup-v$ElectronVersion.exe"
+    $InstallerPath = Join-Path $OutputRoot "MSBT-Installer-v$ElectronVersion.exe"
     $LatestYml = Join-Path $OutputRoot "latest.yml"
     if (-not (Test-Path $InstallerPath)) {
         throw "Expected installer was not produced: $InstallerPath"
@@ -103,13 +103,26 @@ if ($Installer) {
     }
 }
 
-$PortableRootName = "MattsSDKBoostingTools-Electron-Portable-v$ElectronVersion-win-x64"
+$PortableRootName = "MSBT-Portable-v$ElectronVersion-win-x64"
 $PortableStageRoot = Join-Path $OutputRoot "_portable"
 $PortableStageDir = Join-Path $PortableStageRoot $PortableRootName
 $PortableZipPath = Join-Path $OutputRoot "$PortableRootName.zip"
 $UnpackedRoot = Join-Path $OutputRoot "win-unpacked"
 if (-not (Test-Path $UnpackedRoot)) {
     throw "Expected Electron unpacked output was not produced: $UnpackedRoot"
+}
+$RequiredPackageFiles = @(
+    "resources\python\python.exe",
+    "resources\sdkmod\MattsSDKBoostingTools.sdkmod",
+    "resources\sdkmods\ActorScriptDeployer\__init__.py",
+    "resources\releases\latest.json",
+    "resources\external_app\v22_parts_codes_fixed\resources\ui_layout.json"
+)
+foreach ($relativePath in $RequiredPackageFiles) {
+    $fullPath = Join-Path $UnpackedRoot $relativePath
+    if (-not (Test-Path $fullPath)) {
+        throw "Electron package is missing required runtime file: $relativePath"
+    }
 }
 Remove-Item -LiteralPath $PortableStageRoot -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $PortableZipPath -Force -ErrorAction SilentlyContinue

@@ -518,7 +518,9 @@ for _key, _label, _fields in _RARITY_ROWS:
     else:
         _val = 0.0 if bool(_old_rarity_disabled_settings.get(_key, False)) else 1.0
     _rarity_weights[_key] = max(0.0, min(1.0, float(_val)))
-_rarity_auto_reapply: bool = bool(_inventory_settings.get("rarity_auto_reapply", True))
+# Rarity auto-reapply is intentionally opt-in. Older builds defaulted this to on
+# and could silently carry a legendary/pearl-only preset across game loads.
+_rarity_auto_reapply: bool = bool(_inventory_settings.get("rarity_auto_reapply_enabled", False))
 _rarity_status: str = "Rarity drop weights idle. 100% is normal weight, 50% is half weight, 0% disables that rarity."
 _rarity_last_gamestate_key: str = ""
 _rarity_last_state_key: str = ""
@@ -882,7 +884,8 @@ def _rarity_save_settings() -> None:
     try:
         save_extra_settings(
             rarity_weights={k: float(max(0.0, min(1.0, float(v)))) for k, v in dict(_rarity_weights).items()},
-            rarity_auto_reapply=bool(_rarity_auto_reapply),
+            rarity_auto_reapply_enabled=bool(_rarity_auto_reapply),
+            rarity_auto_reapply=False,
         )
     except Exception as exc:
         try:
@@ -1141,7 +1144,7 @@ def _rarity_set_float(mod: object | None, value: float) -> int:
         v = float(value)
     except Exception:
         v = 1.0
-    for name in ("Value", "CurrentValue", "Current", "BaseValue", "InitialValue", "Base"):
+    for name in ("Value", "CurrentValue", "Current", "BaseValue", "Base"):
         try:
             if hasattr(mod, name):
                 setattr(mod, name, v)
@@ -1206,8 +1209,12 @@ def _rarity_set_only(allowed_key: str) -> None:
 
 
 def _rarity_reset_all() -> None:
+    global _rarity_auto_reapply, _rarity_reapply_until, _rarity_reapply_next_try
     for key, _label, _fields in _RARITY_ROWS:
         _rarity_weights[key] = 1.0
+    _rarity_auto_reapply = False
+    _rarity_reapply_until = 0.0
+    _rarity_reapply_next_try = 0.0
     _rarity_save_settings()
     _rarity_apply_modifiers(log_result=True, force_all=True)
 
@@ -1297,7 +1304,7 @@ def _draw_rarity_disabler_card() -> None:
         if changed:
             _rarity_save_settings()
             _rarity_apply_modifiers(log_result=True)
-        _muted_wrapped("Auto reapply is event/burst based: it applies after travel without continuously reading live modifiers.")
+        _muted_wrapped("Auto reapply is off by default. Enable it only if you want these weights restored after travel/world load.")
         _muted_wrapped(_rarity_status)
     if _cyber:
         _end_resizable_card()

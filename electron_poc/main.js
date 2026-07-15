@@ -22,6 +22,11 @@ const {
   writeMovementSettings
 } = require("./movement_settings_store");
 const {
+  raritySettingsFilePath,
+  readRaritySettings,
+  writeRaritySettings
+} = require("./rarity_settings_store");
+const {
   loadBl4Catalog
 } = require("./bl4_codes_catalog");
 
@@ -117,6 +122,13 @@ const BL4_DEFAULT_SDK_MODS_CANDIDATES = [
     "sdk_mods"
   )
 ].filter(Boolean);
+const USER_DATA_FILE_DEFINITIONS = [
+  { key: "serialBookmarks", label: "Serial Bookmarks", fileName: "serial_bookmarks.json" },
+  { key: "devSpawnerFavorites", label: "Dev Spawner Favorites", fileName: "dev_spawner_favorites.json" },
+  { key: "movementSettings", label: "Movement Presets", fileName: "movement_settings.json" },
+  { key: "raritySettings", label: "Rarity Presets", fileName: "rarity_settings.json" },
+  { key: "windowState", label: "Window Size / Position", fileName: "window-state.json" }
+];
 
 function uniquePaths(paths) {
   const seen = new Set();
@@ -445,6 +457,106 @@ async function safeFileHash(filePath) {
   }
 }
 
+async function userDataFileInfo(userDataPath, definition) {
+  const filePath = path.join(userDataPath, definition.fileName);
+  try {
+    const stat = await fs.stat(filePath);
+    return {
+      ...definition,
+      exists: true,
+      path: filePath,
+      size: stat.size,
+      modifiedAt: stat.mtime.toISOString()
+    };
+  } catch (error) {
+    if (error && error.code !== "ENOENT") {
+      return {
+        ...definition,
+        exists: false,
+        path: filePath,
+        error: String(error.message || error)
+      };
+    }
+    return {
+      ...definition,
+      exists: false,
+      path: filePath,
+      size: 0,
+      modifiedAt: ""
+    };
+  }
+}
+
+async function getUserDataInfo() {
+  const userDataPath = app.getPath("userData");
+  await fs.mkdir(userDataPath, { recursive: true });
+  const files = [];
+  for (const definition of USER_DATA_FILE_DEFINITIONS) {
+    files.push(await userDataFileInfo(userDataPath, definition));
+  }
+  return {
+    ok: true,
+    path: userDataPath,
+    files,
+    message: "Saved Electron user data is stored outside the install folder and should survive app updates."
+  };
+}
+
+function backupTimestamp() {
+  return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+}
+
+async function exportUserDataBackup() {
+  const info = await getUserDataInfo();
+  const defaultPath = path.join(
+    app.getPath("documents"),
+    `MSBT-Electron-User-Data-Backup-${backupTimestamp()}.json`
+  );
+  const result = await dialog.showSaveDialog({
+    title: "Export MSBT saved data backup",
+    defaultPath,
+    filters: [
+      { name: "MSBT JSON backup", extensions: ["json"] }
+    ]
+  });
+  if (result.canceled || !result.filePath) {
+    return { ok: false, canceled: true, message: "Backup export cancelled." };
+  }
+
+  const files = {};
+  for (const fileInfo of info.files) {
+    if (!fileInfo.exists) continue;
+    try {
+      files[fileInfo.fileName] = {
+        label: fileInfo.label,
+        size: fileInfo.size,
+        modifiedAt: fileInfo.modifiedAt,
+        content: await fs.readFile(fileInfo.path, "utf8")
+      };
+    } catch (error) {
+      files[fileInfo.fileName] = {
+        label: fileInfo.label,
+        error: String(error && error.message ? error.message : error)
+      };
+    }
+  }
+
+  const payload = {
+    version: 1,
+    appVersion: app.getVersion(),
+    exportedAt: new Date().toISOString(),
+    userDataPath: info.path,
+    files
+  };
+  await fs.writeFile(result.filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return {
+    ok: true,
+    path: result.filePath,
+    files: Object.keys(files),
+    message: `Saved data backup exported to ${result.filePath}`
+  };
+}
+
 async function bundledSdkmodInfo() {
   const available = await fileExists(BUNDLED_SDKMOD_PATH);
   return {
@@ -712,6 +824,17 @@ ipcMain.handle("app:readDevSpawnerCatalog", async () => {
   }
 });
 
+ipcMain.handle("app:getUserDataInfo", async () => getUserDataInfo());
+
+ipcMain.handle("app:openUserDataFolder", async () => {
+  const info = await getUserDataInfo();
+  const error = await shell.openPath(info.path);
+  if (error) return { ok: false, path: info.path, message: error };
+  return { ok: true, path: info.path, message: "Opened saved data folder." };
+});
+
+ipcMain.handle("app:exportUserDataBackup", async () => exportUserDataBackup());
+
 ipcMain.handle("app:loadDevSpawnerFavorites", async () => {
   const filePath = favoritesFilePath(app.getPath("userData"));
   return readFavorites(filePath);
@@ -749,6 +872,20 @@ ipcMain.handle("app:saveMovementSettings", async (_event, payload) => {
   const filePath = movementSettingsFilePath(app.getPath("userData"));
   try {
     return await writeMovementSettings(filePath, payload || {});
+  } catch (error) {
+    return { ok: false, message: String(error && error.message ? error.message : error) };
+  }
+});
+
+ipcMain.handle("app:loadRaritySettings", async () => {
+  const filePath = raritySettingsFilePath(app.getPath("userData"));
+  return readRaritySettings(filePath);
+});
+
+ipcMain.handle("app:saveRaritySettings", async (_event, payload) => {
+  const filePath = raritySettingsFilePath(app.getPath("userData"));
+  try {
+    return await writeRaritySettings(filePath, payload || {});
   } catch (error) {
     return { ok: false, message: String(error && error.message ? error.message : error) };
   }

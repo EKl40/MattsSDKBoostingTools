@@ -114,12 +114,12 @@ $ExePath = Join-Path $ExternalFolder "MattsBoostingToolsExternal.exe"
 $ExeHash = (Get-FileHash -Algorithm SHA256 $ExePath).Hash.ToLowerInvariant()
 $UiLayoutPath = Join-Path $ExternalFolder "resources\ui_layout.json"
 $ResourcesHash = if (Test-Path $UiLayoutPath) { (Get-FileHash -Algorithm SHA256 $UiLayoutPath).Hash.ToLowerInvariant() } else { "" }
-$ElectronPortableZipName = "MattsSDKBoostingTools-Electron-Portable-v$PackageVersion-win-x64.zip"
+$ElectronPortableZipName = "MSBT-Portable-v$PackageVersion-win-x64.zip"
 $DownloadUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/download/$ReleaseTag/$ElectronPortableZipName"
 $LegacyPortableDownloadUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/download/$ReleaseTag/$PortableZipName"
 $LatestManifestUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/latest/download/latest.json"
 $ReleaseUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases"
-$ElectronInstallerName = "MattsSDKBoostingTools-Setup-v$ElectronVersion.exe"
+$ElectronInstallerName = "MSBT-Installer-v$ElectronVersion.exe"
 $ElectronDownloadUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/download/$ReleaseTag/$ElectronInstallerName"
 $ElectronUpdaterManifestUrl = "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/download/$ReleaseTag/latest.yml"
 

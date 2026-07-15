@@ -20,8 +20,8 @@ Go to the [GitHub Releases page](https://github.com/funkyoushift/MattsSDKBoostin
 
 | What you want | Download this | Notes |
 | --- | --- | --- |
-| Recommended normal install | `MattsSDKBoostingTools-Setup-v...exe` | Windows installer. Adds app shortcuts and installs the bundled SDK mod plus ActorScriptDeployer into the detected Borderlands 4 `sdk_mods` folder. |
-| Manual install / no installer | `MattsSDKBoostingTools-Electron-Portable-v...-win-x64.zip` | Extract it yourself. Electron app files plus bundled SDK mod/update resources. |
+| Recommended normal install | `MSBT-Installer-v...exe` | Windows installer. Adds app shortcuts and installs the bundled SDK mod plus ActorScriptDeployer into the detected Borderlands 4 `sdk_mods` folder. |
+| Manual install / no installer | `MSBT-Portable-v...-win-x64.zip` | Extract it yourself. Electron app files plus bundled SDK mod/update resources. |
 | Legacy rollback | `MattsSDKBoostingTools-Legacy-Tkinter-Portable-v...zip` | Older Tkinter/manual package kept available while Electron beta testing continues. |
 | Source code only | GitHub `Source code (zip)` / `Source code (tar.gz)` | For developers. This is not the ready-to-run app. |
 
@@ -32,7 +32,7 @@ Older beta packages remain available on the Releases page as rollback builds.
 ## Quick Install
 
 1. Install or update to [oak2-mod-manager v0.3](https://github.com/bl-sdk/oak2-mod-manager/releases/tag/v0.3).
-2. Download the current `MattsSDKBoostingTools-Setup-v...exe` installer from [GitHub Releases](https://github.com/funkyoushift/MattsSDKBoostingTools/releases).
+2. Download the current `MSBT-Installer-v...exe` installer from [GitHub Releases](https://github.com/funkyoushift/MattsSDKBoostingTools/releases).
 3. Run the installer. It installs the Electron app, `MattsSDKBoostingTools.sdkmod`, and the bundled `ActorScriptDeployer/` dependency.
 4. Launch Matt's SDK Boosting Tools. If your Borderlands 4 folder is not in a standard Steam library path, use the Updates tab to browse to `sdk_mods` and run Install / Update SDK Mod.
 5. Start Borderlands 4 with the SDK loaded.
@@ -56,12 +56,13 @@ The current public direction is:
 - Keep the original BLImGui panel available when BLImGui is installed.
 - Make BLImGui optional.
 - Run live game actions through a small SDK bridge.
-- Move non-game UI/catalog/serial/build logic into a standalone Tkinter app.
-- Package the standalone app as an EXE for users who do not have Python installed.
+- Move non-game UI/catalog/serial/build logic into the Electron app.
+- Keep the older Tkinter app as legacy/reference only while Electron becomes the main user-facing path.
+- Package Electron with the bundled SDK mod, ActorScriptDeployer, resources, and a portable Python runtime.
 
 ## Package Contents
 
-Legacy/manual portable packages contain:
+Legacy/manual Tkinter rollback packages contain:
 
 ```text
 MSBT_External_Beta/
@@ -88,25 +89,25 @@ Requirements:
 
 The build script installs the external-app build requirements from `requirements-external-build.txt`, including PyInstaller and pywebview. `pywebview` is bundled into the packaged EXE so beta users do not need to install it.
 
-Build the external app:
+Build the Electron app:
 
 ```powershell
-.\build_external_exe.ps1
+.\build_electron_beta.ps1
 ```
 
-If the build requirements are already installed, dependency installation can be skipped:
+Build the Electron Windows installer:
 
 ```powershell
-.\build_external_exe.ps1 -SkipDependencyInstall
+.\build_electron_beta.ps1 -Installer
 ```
 
-Build the beta package:
+The legacy Tkinter package script is kept only for rollback builds:
 
 ```powershell
 .\package_external_beta.ps1
 ```
 
-The package script creates:
+The legacy package script creates:
 
 ```text
 MSBT_External_Beta/

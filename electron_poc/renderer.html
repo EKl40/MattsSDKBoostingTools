@@ -303,7 +303,15 @@
           <button data-rarity-action="rarity_only_legendary">Only Legendary</button>
           <button data-rarity-action="rarity_only_pearlescent">Only Pearlescent</button>
         </div>
-        <div id="rarityStatus" class="status-line warning">Adjust weights, then Apply. Reapply after travel if drops reset.</div>
+        <div class="button-row wrap">
+          <button id="raritySavePresetBtn">Save Rarity Preset</button>
+          <button id="rarityLoadPresetBtn">Load Saved Preset</button>
+          <label class="check-line">
+            <input id="rarityRememberPreset" type="checkbox">
+            Remember saved sliders on startup (does not apply)
+          </label>
+        </div>
+        <div id="rarityStatus" class="status-line warning">Adjust weights, then Apply. Saved presets only change the visible sliders until you apply them.</div>
       </section>
 
       <section class="panel">
@@ -354,12 +362,11 @@
         <div class="section-heading">
           <div>
             <h2>Serial Bookmarks</h2>
-            <p>Save one confirmed @U serial per bookmark, then deliver the active bookmark through the SDK bridge.</p>
+            <p>Browse saved serial folders, check individual rows or whole folders, then deliver the checked items from the footer.</p>
           </div>
           <div class="button-row wrap">
             <button id="bookmarkNewBtn">+ New Serial</button>
-            <button id="bookmarkSaveBtn">Save</button>
-            <button id="bookmarkDeleteBtn" class="danger">Delete</button>
+            <button id="bookmarkImportBtn">Import</button>
           </div>
         </div>
         <div id="bookmarkStatus" class="status-line warning">Loading serial bookmarks...</div>
@@ -379,6 +386,11 @@
               </label>
             </div>
             <div id="bookmarkCount" class="status-line">0 shown / 0 saved</div>
+            <div class="button-row wrap">
+              <button id="bookmarkSelectAllBtn">Select All</button>
+              <button id="bookmarkClearSelectedBtn" class="danger">Clear</button>
+              <button id="bookmarkCopySelectedBtn">Copy Selected Serials</button>
+            </div>
             <div id="bookmarkRows" class="bookmark-list">
               <div class="dev-empty-row">No saved bookmarks yet.</div>
             </div>
@@ -393,8 +405,13 @@
             <label for="bookmarkSerial">Serial</label>
             <textarea id="bookmarkSerial" spellcheck="false" placeholder="@U..."></textarea>
             <div class="button-row wrap">
-              <button id="bookmarkValidateBtn">Validate / Confirm Serial</button>
+              <button id="bookmarkSaveBtn">Save</button>
+              <button id="bookmarkDuplicateBtn">Duplicate</button>
+              <button id="bookmarkDeleteBtn" class="danger">Delete</button>
               <button id="bookmarkCopyBtn">Copy Serial</button>
+            </div>
+            <div class="button-row wrap">
+              <button id="bookmarkValidateBtn">Validate / Confirm Active</button>
             </div>
             <div id="bookmarkValidationStatus" class="status-line warning">No confirmed serial yet.</div>
             <label for="bookmarkTargetSelect">Serial Bookmarks Target</label>
@@ -406,10 +423,11 @@
               <button id="bookmarkSetTargetBtn" class="hidden">Set Target</button>
             </div>
             <div id="bookmarkTargetSummary" class="status-line warning">Selected target: none</div>
+            <div class="status-line warning">Delivery sends checked bookmark rows. If nothing is checked, the active row is used.</div>
             <div class="button-row wrap">
-              <button data-bookmark-send-mode="selected">Send Selected</button>
-              <button data-bookmark-send-mode="all">Send All</button>
-              <button data-bookmark-send-mode="nonhost">Send Non-Host</button>
+              <button data-bookmark-send-mode="selected">Deliver Selected</button>
+              <button data-bookmark-send-mode="all">Deliver All</button>
+              <button data-bookmark-send-mode="nonhost">Deliver Non-Host</button>
             </div>
             <pre id="bookmarkOutput">No bookmark delivery sent yet.</pre>
           </section>
@@ -1052,7 +1070,7 @@
       <div class="grid two">
         <section class="panel purple">
           <h2>Beta Bug / Feature Report</h2>
-          <p>Make a clean report for GitHub. Diagnostics are optional and redacted before preview.</p>
+          <p>Send reports to the MSBT GitHub Issues page. The app builds a clean report, opens GitHub with the report filled in, then you can attach screenshots or logs before submitting.</p>
           <label for="reportKind">Report Type</label>
           <select id="reportKind">
             <option value="bug">Report Bug</option>
@@ -1084,9 +1102,9 @@
             <button id="reportPreviewBtn">Refresh Preview</button>
             <button id="reportCopyBtn">Copy Report</button>
             <button id="reportSaveBtn">Save Report</button>
-            <button id="reportGithubBtn">Open Prefilled GitHub Issue</button>
+            <button id="reportGithubBtn">Submit Report on GitHub</button>
           </div>
-          <div id="reportStatus" class="status-line">No report generated yet.</div>
+          <div id="reportStatus" class="status-line">Reports go to github.com/funkyoushift/MattsSDKBoostingTools/issues.</div>
         </section>
         <section class="panel cyan">
           <h2>Preview</h2>
@@ -1125,6 +1143,18 @@
           <button id="manualZipBtn">Open Manual ZIP</button>
         </div>
         <pre id="updateOutput">Checks GitHub Releases metadata without changing files.</pre>
+      </section>
+
+      <section class="panel green">
+        <h2>Saved Data / Backups</h2>
+        <p>Bookmarks, Dev Spawner favorites, movement presets, rarity presets, and window size are stored outside the install folder so updates should not erase them.</p>
+        <div id="savedDataSummary" class="status-line">Saved data folder not checked yet.</div>
+        <div class="button-row wrap">
+          <button id="savedDataRefreshBtn">Refresh Saved Data</button>
+          <button id="savedDataOpenBtn">Open Saved Data Folder</button>
+          <button id="savedDataBackupBtn">Export Settings Backup</button>
+        </div>
+        <pre id="savedDataOutput">Use this before updating if you want a manual backup of saved Electron data.</pre>
       </section>
 
       <section class="panel cyan">

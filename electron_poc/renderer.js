@@ -143,10 +143,13 @@ const els = {
   rarityEpicValue: document.getElementById("rarityEpicValue"),
   rarityLegendaryPercent: document.getElementById("rarityLegendaryPercent"),
   rarityLegendaryValue: document.getElementById("rarityLegendaryValue"),
+  rarityLoadPresetBtn: document.getElementById("rarityLoadPresetBtn"),
   rarityPearlescentPercent: document.getElementById("rarityPearlescentPercent"),
   rarityPearlescentValue: document.getElementById("rarityPearlescentValue"),
   rarityRarePercent: document.getElementById("rarityRarePercent"),
   rarityRareValue: document.getElementById("rarityRareValue"),
+  rarityRememberPreset: document.getElementById("rarityRememberPreset"),
+  raritySavePresetBtn: document.getElementById("raritySavePresetBtn"),
   rarityStatus: document.getElementById("rarityStatus"),
   rarityUncommonPercent: document.getElementById("rarityUncommonPercent"),
   rarityUncommonValue: document.getElementById("rarityUncommonValue"),
@@ -164,11 +167,15 @@ const els = {
   reportStatus: document.getElementById("reportStatus"),
   reportSteps: document.getElementById("reportSteps"),
   reportTitle: document.getElementById("reportTitle"),
+  bookmarkClearSelectedBtn: document.getElementById("bookmarkClearSelectedBtn"),
   bookmarkCopyBtn: document.getElementById("bookmarkCopyBtn"),
+  bookmarkCopySelectedBtn: document.getElementById("bookmarkCopySelectedBtn"),
   bookmarkCount: document.getElementById("bookmarkCount"),
   bookmarkDeleteBtn: document.getElementById("bookmarkDeleteBtn"),
+  bookmarkDuplicateBtn: document.getElementById("bookmarkDuplicateBtn"),
   bookmarkGroup: document.getElementById("bookmarkGroup"),
   bookmarkGroupFilter: document.getElementById("bookmarkGroupFilter"),
+  bookmarkImportBtn: document.getElementById("bookmarkImportBtn"),
   bookmarkName: document.getElementById("bookmarkName"),
   bookmarkNewBtn: document.getElementById("bookmarkNewBtn"),
   bookmarkOutput: document.getElementById("bookmarkOutput"),
@@ -176,6 +183,7 @@ const els = {
   bookmarkRows: document.getElementById("bookmarkRows"),
   bookmarkSaveBtn: document.getElementById("bookmarkSaveBtn"),
   bookmarkSearch: document.getElementById("bookmarkSearch"),
+  bookmarkSelectAllBtn: document.getElementById("bookmarkSelectAllBtn"),
   bookmarkSerial: document.getElementById("bookmarkSerial"),
   bookmarkSetTargetBtn: document.getElementById("bookmarkSetTargetBtn"),
   bookmarkStatus: document.getElementById("bookmarkStatus"),
@@ -195,6 +203,11 @@ const els = {
   serialToolsInput: document.getElementById("serialToolsInput"),
   serialToolsSerialized: document.getElementById("serialToolsSerialized"),
   serialToolsStatus: document.getElementById("serialToolsStatus"),
+  savedDataBackupBtn: document.getElementById("savedDataBackupBtn"),
+  savedDataOpenBtn: document.getElementById("savedDataOpenBtn"),
+  savedDataOutput: document.getElementById("savedDataOutput"),
+  savedDataRefreshBtn: document.getElementById("savedDataRefreshBtn"),
+  savedDataSummary: document.getElementById("savedDataSummary"),
   serialDeliveryBar: document.getElementById("serialDeliveryBar"),
   serialDeliveryLabel: document.getElementById("serialDeliveryLabel"),
   serialDeliveryMessage: document.getElementById("serialDeliveryMessage"),
@@ -257,6 +270,7 @@ const state = {
   bridgeStatusPollInFlight: false,
   bridgeStatusPollTimer: null,
   bookmarkActiveId: "",
+  bookmarkCheckedIds: new Set(),
   bookmarkConfirmedId: "",
   bookmarkConfirmedSerial: "",
   bookmarkFilterGroup: "All",
@@ -287,6 +301,8 @@ const state = {
   movementAutoApplyOnStart: false,
   movementSavedPreset: null,
   players: [],
+  rarityRememberOnStart: false,
+  raritySavedPreset: null,
   reportPreviewText: "",
   serialDeliveryIdlePolls: 0,
   serialDeliveryLastMessage: "",
@@ -670,6 +686,80 @@ function rarityPayload() {
     payload[`rarity_${key}_percent`] = getInt(input, 0, 100, 100);
   });
   return payload;
+}
+
+function currentRarityPreset() {
+  const preset = {};
+  rarityControls().forEach(({ key, input }) => {
+    preset[key] = getInt(input, 0, 100, 100);
+  });
+  return preset;
+}
+
+function hasRarityPreset(preset) {
+  return Boolean(preset && typeof preset === "object" && Object.keys(preset).length);
+}
+
+function raritySettingsPayload() {
+  return {
+    version: 1,
+    preset: currentRarityPreset(),
+    rememberOnStart: Boolean(els.rarityRememberPreset && els.rarityRememberPreset.checked)
+  };
+}
+
+async function loadRaritySettings() {
+  if (!window.msbt || typeof window.msbt.loadRaritySettings !== "function") {
+    setLine(els.rarityStatus, "Rarity preset storage is unavailable in this shell.", "warning");
+    return;
+  }
+  const result = await window.msbt.loadRaritySettings();
+  const data = result && result.data ? result.data : {};
+  if (!result || !result.ok) {
+    setLine(els.rarityStatus, resultMessage(result) || "Rarity preset load failed.", "warning");
+    return;
+  }
+
+  const hasSavedFile = Boolean(data.updated_at);
+  state.raritySavedPreset = hasSavedFile && hasRarityPreset(data.preset) ? data.preset : null;
+  state.rarityRememberOnStart = Boolean(data.rememberOnStart);
+  if (els.rarityRememberPreset) els.rarityRememberPreset.checked = state.rarityRememberOnStart;
+
+  if (state.raritySavedPreset && state.rarityRememberOnStart) {
+    setRarityPreset(state.raritySavedPreset);
+    setLine(els.rarityStatus, "Saved rarity sliders loaded. Drops stay unchanged until you click Apply.", "ok");
+  } else if (state.raritySavedPreset) {
+    setLine(els.rarityStatus, "Saved rarity sliders found, but startup loading is off. Current sliders remain vanilla until you load or change them.", "warning");
+  } else {
+    setLine(els.rarityStatus, "No saved rarity preset. Startup sliders use vanilla 100% weights.", "warning");
+  }
+}
+
+async function saveRaritySettings(message = "Saved current rarity sliders as the rarity preset.") {
+  if (!window.msbt || typeof window.msbt.saveRaritySettings !== "function") {
+    setLine(els.rarityStatus, "Rarity preset storage is unavailable in this shell.", "warning");
+    return null;
+  }
+  const result = await window.msbt.saveRaritySettings(raritySettingsPayload());
+  const data = result && result.data ? result.data : {};
+  if (result && result.ok) {
+    state.raritySavedPreset = hasRarityPreset(data.preset) ? data.preset : currentRarityPreset();
+    state.rarityRememberOnStart = Boolean(data.rememberOnStart);
+    if (els.rarityRememberPreset) els.rarityRememberPreset.checked = state.rarityRememberOnStart;
+    setLine(els.rarityStatus, message, "ok");
+  } else {
+    setLine(els.rarityStatus, resultMessage(result) || "Rarity preset save failed.", "bad");
+  }
+  return result;
+}
+
+async function loadSavedRarityPresetIntoControls() {
+  if (!state.raritySavedPreset) {
+    setLine(els.rarityStatus, "No saved rarity preset to load.", "warning");
+    return;
+  }
+  setRarityPreset(state.raritySavedPreset);
+  setLine(els.rarityStatus, "Loaded saved rarity sliders. Drops stay unchanged until you click Apply.", "ok");
 }
 
 async function runRarityAction(action) {
@@ -1293,6 +1383,39 @@ function bookmarkGroups() {
   return Array.from(new Set(state.bookmarks.map((row) => row.group || "Default"))).sort((a, b) => a.localeCompare(b));
 }
 
+function bookmarkGroupCounts() {
+  const counts = new Map([["All", state.bookmarks.length]]);
+  state.bookmarks.forEach((row) => {
+    const group = row.group || "Default";
+    counts.set(group, (counts.get(group) || 0) + 1);
+  });
+  return counts;
+}
+
+function bookmarkSelectedEntries() {
+  const checked = state.bookmarks.filter((row) => state.bookmarkCheckedIds.has(row.id));
+  if (checked.length) return checked;
+  const active = activeBookmark();
+  return active ? [active] : [];
+}
+
+function bookmarkSerialLinesForEntry(row) {
+  return String(row && row.serial ? row.serial : "")
+    .split(/\r?\n/g)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function bookmarkSerialLinesForEntries(entries) {
+  return entries.flatMap(bookmarkSerialLinesForEntry);
+}
+
+function bookmarkInvalidSerialLines(serials) {
+  return serials
+    .map((serial, index) => ({ serial, index, message: serialValidationMessage(serial) }))
+    .filter((entry) => entry.message);
+}
+
 function setBookmarkStatus(message, kind = "warning") {
   setLine(els.bookmarkStatus, message, kind);
 }
@@ -1311,11 +1434,12 @@ function invalidateBookmarkConfirmation(message = "Serial changed. Validate / Co
 function renderBookmarkGroupFilter() {
   if (!els.bookmarkGroupFilter) return;
   const previous = getValue(els.bookmarkGroupFilter) || state.bookmarkFilterGroup || "All";
+  const counts = bookmarkGroupCounts();
   els.bookmarkGroupFilter.innerHTML = "";
   ["All", ...bookmarkGroups()].forEach((group) => {
     const option = document.createElement("option");
     option.value = group;
-    option.textContent = group;
+    option.textContent = `${group} (${counts.get(group) || 0})`;
     if (group === previous) option.selected = true;
     els.bookmarkGroupFilter.appendChild(option);
   });
@@ -1340,7 +1464,8 @@ function renderBookmarks() {
   renderBookmarkGroupFilter();
   const rows = filteredBookmarks();
   state.bookmarkVisibleRows = rows;
-  setLine(els.bookmarkCount, `${rows.length} shown / ${state.bookmarks.length} saved`, rows.length ? "ok" : "warning");
+  const selectedCount = bookmarkSelectedEntries().length;
+  setLine(els.bookmarkCount, `${rows.length} shown / ${state.bookmarks.length} saved | ${selectedCount} selected`, rows.length ? "ok" : "warning");
 
   if (!els.bookmarkRows) return;
   els.bookmarkRows.innerHTML = "";
@@ -1362,13 +1487,14 @@ function renderBookmarks() {
   rows.forEach((row) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `bookmark-row${row.id === state.bookmarkActiveId ? " active" : ""}`;
-    button.addEventListener("click", () => selectBookmark(row.id));
+    const checked = state.bookmarkCheckedIds.has(row.id);
+    button.className = `bookmark-row${row.id === state.bookmarkActiveId ? " active" : ""}${checked ? " checked" : ""}`;
+    button.addEventListener("click", () => selectBookmark(row.id, { toggleChecked: true }));
 
     const main = document.createElement("span");
     const title = document.createElement("span");
     title.className = "bookmark-title";
-    title.textContent = row.name || "Untitled Serial";
+    title.textContent = `${row.id === state.bookmarkActiveId ? "> " : "  "}${checked ? "[X]" : "[ ]"} ${row.name || "Untitled Serial"}`;
     const serial = document.createElement("span");
     serial.className = "bookmark-serial";
     serial.textContent = bookmarkSummarySerial(row.serial);
@@ -1392,11 +1518,18 @@ function clearBookmarkForm() {
   renderBookmarks();
 }
 
-function selectBookmark(id) {
+function selectBookmark(id, options = {}) {
   const row = state.bookmarks.find((item) => item.id === id);
   if (!row) {
     clearBookmarkForm();
     return;
+  }
+  if (options.toggleChecked) {
+    if (state.bookmarkCheckedIds.has(row.id)) {
+      state.bookmarkCheckedIds.delete(row.id);
+    } else {
+      state.bookmarkCheckedIds.add(row.id);
+    }
   }
   state.bookmarkActiveId = row.id;
   setTextValue(els.bookmarkName, row.name || "");
@@ -1416,6 +1549,8 @@ async function persistSerialBookmarks(successMessage) {
   state.bookmarks = Array.isArray(result.data && result.data.bookmarks)
     ? result.data.bookmarks.map(normalizeBookmarkForRenderer)
     : [];
+  const validIds = new Set(state.bookmarks.map((row) => row.id));
+  state.bookmarkCheckedIds = new Set(Array.from(state.bookmarkCheckedIds).filter((id) => validIds.has(id)));
   if (state.bookmarkActiveId && !activeBookmark()) state.bookmarkActiveId = "";
   renderBookmarks();
   const warning = Array.isArray(result.warnings) && result.warnings.length ? ` ${result.warnings.join(" ")}` : "";
@@ -1438,6 +1573,7 @@ async function loadSerialBookmarks() {
   state.bookmarks = Array.isArray(result.data && result.data.bookmarks)
     ? result.data.bookmarks.map(normalizeBookmarkForRenderer)
     : [];
+  state.bookmarkCheckedIds.clear();
   const warnings = Array.isArray(result.warnings) ? result.warnings : [];
   renderBookmarks();
   if (state.bookmarks.length && !state.bookmarkActiveId) {
@@ -1503,9 +1639,65 @@ async function deleteBookmark() {
   }
 }
 
+function duplicateBookmark() {
+  const row = activeBookmark();
+  if (!row) {
+    setBookmarkStatus("Select a bookmark before duplicating.", "warning");
+    return;
+  }
+  state.bookmarkActiveId = "";
+  setTextValue(els.bookmarkName, `${(row.name || "Serial").trim() || "Serial"} Copy`);
+  setTextValue(els.bookmarkGroup, row.group || "Default");
+  setTextValue(els.bookmarkSerial, row.serial || "");
+  invalidateBookmarkConfirmation("Duplicated into a new unsaved entry. Review, then Save.");
+  setBookmarkStatus("Duplicated into a new unsaved entry. Review, then Save.", "ok");
+  renderBookmarks();
+}
+
+function importBookmarkFromSerialTools() {
+  const source = [
+    getValue(els.serialToolsSerialized),
+    getValue(els.serialToolsDeserialized),
+    getValue(els.serialToolsInput)
+  ].map((value) => value.trim()).find(Boolean);
+  if (!source) {
+    setBookmarkStatus("Serial Tools has no output/input to import.", "warning");
+    return;
+  }
+  state.bookmarkActiveId = "";
+  setTextValue(els.bookmarkSerial, source);
+  if (!getValue(els.bookmarkGroup)) setTextValue(els.bookmarkGroup, "Default");
+  invalidateBookmarkConfirmation("Imported text from Serial Tools. Add a name/group, then save.");
+  setBookmarkStatus("Imported text from Serial Tools. Add a name/group, then save.", "ok");
+  renderBookmarks();
+}
+
 async function copyBookmarkSerial() {
   const serial = getValue(els.bookmarkSerial);
   await copyText(serial, els.bookmarkValidationStatus, "Bookmark serial");
+}
+
+function selectAllVisibleBookmarks() {
+  state.bookmarkVisibleRows.forEach((row) => state.bookmarkCheckedIds.add(row.id));
+  renderBookmarks();
+  const group = getValue(els.bookmarkGroupFilter) || "All";
+  setBookmarkStatus(`Selected ${state.bookmarkVisibleRows.length} visible bookmark(s)${group !== "All" ? ` in ${group}` : ""}.`, "ok");
+}
+
+function clearBookmarkSelection() {
+  state.bookmarkCheckedIds.clear();
+  renderBookmarks();
+  setBookmarkStatus("Cleared checked bookmark rows.", "ok");
+}
+
+async function copySelectedBookmarkSerials() {
+  const entries = bookmarkSelectedEntries();
+  const serials = bookmarkSerialLinesForEntries(entries);
+  if (!serials.length) {
+    setBookmarkStatus("Select one or more bookmarked serials to copy.", "warning");
+    return;
+  }
+  await copyText(serials.join("\n"), els.bookmarkStatus, `${serials.length} bookmarked serial(s)`);
 }
 
 function bookmarkValidationFailure(message) {
@@ -1549,17 +1741,27 @@ async function validateBookmarkSerial() {
 }
 
 async function sendBookmarkSerial(mode) {
-  const serial = getValue(els.bookmarkSerial);
-  const validation = serialValidationMessage(serial);
-  if (validation) {
-    setOutput(els.bookmarkOutput, validation);
-    setBookmarkValidation(validation, "bad");
+  const entries = bookmarkSelectedEntries();
+  if (!entries.length) {
+    const message = "Select one or more saved serial bookmarks first.";
+    setOutput(els.bookmarkOutput, message);
+    setBookmarkStatus(message, "warning");
     return;
   }
-  if (state.bookmarkConfirmedSerial !== serial) {
-    const message = "Validate / Confirm Serial before sending. Confirmation clears whenever the serial changes.";
+  const serials = bookmarkSerialLinesForEntries(entries);
+  if (!serials.length) {
+    const message = "Selected bookmarks did not contain any deliverable @U serials.";
     setOutput(els.bookmarkOutput, message);
-    setBookmarkValidation(message, "warning");
+    setBookmarkStatus(message, "bad");
+    return;
+  }
+  const invalid = bookmarkInvalidSerialLines(serials);
+  if (invalid.length) {
+    const shown = invalid.slice(0, 6).map((entry) => `#${entry.index + 1}: ${entry.message}`).join("\n");
+    const extra = invalid.length > 6 ? `\n...and ${invalid.length - 6} more.` : "";
+    const message = `Selected bookmarks include invalid serials. Fix or uncheck them before delivery.\n${shown}${extra}`;
+    setOutput(els.bookmarkOutput, message);
+    setBookmarkStatus("Selected bookmarks include invalid serials.", "bad");
     return;
   }
   if (mode === "selected" && !state.selectedTarget) {
@@ -1569,7 +1771,20 @@ async function sendBookmarkSerial(mode) {
     return;
   }
 
-  const result = await sendSerialPayload(mode, serial, false, 60, els.bookmarkOutput);
+  const destination = mode === "selected" ? (state.selectedTarget || "selected target") : mode === "all" ? "all players" : "non-host players";
+  const label = entries.length === 1 ? `"${entries[0].name || "selected bookmark"}"` : `${entries.length} bookmark row(s)`;
+  if (!window.confirm(`Deliver ${serials.length} serial(s) from ${label} to ${destination}?`)) {
+    setBookmarkStatus("Serial bookmark delivery cancelled.", "warning");
+    return;
+  }
+
+  const serialText = serials.join("\n");
+  setBookmarkStatus(`Sending ${serials.length} bookmarked serial(s) to ${destination}...`, "warning");
+  setOutput(
+    els.bookmarkOutput,
+    `Sending Serial Bookmarks delivery:\nDestination: ${destination}\nBookmark rows: ${entries.length}\nSerial count: ${serials.length}\n${entries.map((row) => `${row.name || "Untitled Serial"} | ${row.group || "Default"}`).join("\n")}`
+  );
+  const result = await sendSerialPayload(mode, serialText, false, 60, els.bookmarkOutput);
   if (!result) return;
   const message = resultMessage(result);
   if (actionSucceeded(result)) {
@@ -2515,6 +2730,76 @@ async function installBundledSdkMod() {
     renderVersionInfo({ ...(state.versionInfo || {}), installedSdkmod: { ...result.installedSdkmod, sdkModsPath: result.path } });
   }
   setLine(els.sdkInstallSummary, result.message || "SDK mod install/update finished.", result.ok ? "ok" : "bad");
+}
+
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function renderSavedDataInfo(result) {
+  if (!result || !result.ok) {
+    setLine(els.savedDataSummary, result && result.message ? result.message : "Saved data check failed.", "bad");
+    setOutput(els.savedDataOutput, result || "Saved data check failed.");
+    return;
+  }
+  const files = Array.isArray(result.files) ? result.files : [];
+  const found = files.filter((file) => file.exists).length;
+  setLine(
+    els.savedDataSummary,
+    `${found}/${files.length} saved data file(s) found. Folder: ${result.path}`,
+    "ok"
+  );
+  const lines = [
+    result.message || "Saved data folder checked.",
+    "",
+    `Folder: ${result.path}`,
+    "",
+    ...files.map((file) => {
+      if (!file.exists) return `${file.label}: not created yet (${file.fileName})`;
+      const modified = file.modifiedAt ? ` | modified ${file.modifiedAt}` : "";
+      return `${file.label}: ${formatBytes(file.size)}${modified}`;
+    })
+  ];
+  setOutput(els.savedDataOutput, lines.join("\n"));
+}
+
+async function refreshSavedDataInfo() {
+  if (!window.msbt || typeof window.msbt.getUserDataInfo !== "function") return null;
+  setLine(els.savedDataSummary, "Checking saved Electron data...", "warning");
+  const result = await window.msbt.getUserDataInfo();
+  renderSavedDataInfo(result);
+  return result;
+}
+
+async function openSavedDataFolder() {
+  setLine(els.savedDataSummary, "Opening saved data folder...", "warning");
+  const result = await window.msbt.openUserDataFolder();
+  if (result && result.ok) {
+    setLine(els.savedDataSummary, result.message || "Opened saved data folder.", "ok");
+  } else {
+    setLine(els.savedDataSummary, result && result.message ? result.message : "Could not open saved data folder.", "bad");
+  }
+  setOutput(els.savedDataOutput, result);
+}
+
+async function exportSavedDataBackup() {
+  setLine(els.savedDataSummary, "Choose where to save the backup...", "warning");
+  const result = await window.msbt.exportUserDataBackup();
+  if (result && result.canceled) {
+    setLine(els.savedDataSummary, result.message || "Backup export cancelled.", "warning");
+    return;
+  }
+  if (result && result.ok) {
+    await refreshSavedDataInfo();
+    setLine(els.savedDataSummary, result.message || "Saved data backup exported.", "ok");
+  } else {
+    setLine(els.savedDataSummary, result && result.message ? result.message : "Backup export failed.", "bad");
+  }
+  setOutput(els.savedDataOutput, result);
 }
 
 function resetSerialToolsOutputs(status = "Paste a @U serial or deserialized serial text above.") {
@@ -4126,7 +4411,7 @@ async function openReportIssue() {
   url.searchParams.set("body", report.slice(0, 8000));
   url.searchParams.set("labels", kind === "feature" ? "enhancement" : "bug");
   await window.msbt.openExternal(url.toString());
-  setLine(els.reportStatus, "Opened prefilled GitHub issue.", "ok");
+  setLine(els.reportStatus, "Opened a GitHub issue draft. Review it, attach screenshots/logs if needed, then click Submit new issue on GitHub.", "ok");
 }
 
 function switchTab(tabId) {
@@ -4205,6 +4490,19 @@ function wireEvents() {
     if (input) input.addEventListener("input", updateRarityValueLabels);
   });
   updateRarityValueLabels();
+  if (els.raritySavePresetBtn) {
+    els.raritySavePresetBtn.addEventListener("click", () => saveRaritySettings());
+  }
+  if (els.rarityLoadPresetBtn) {
+    els.rarityLoadPresetBtn.addEventListener("click", loadSavedRarityPresetIntoControls);
+  }
+  if (els.rarityRememberPreset) {
+    els.rarityRememberPreset.addEventListener("change", () => saveRaritySettings(
+      els.rarityRememberPreset.checked
+        ? "Rarity preset saved. It will load into the sliders on startup, but will not apply until you click Apply."
+        : "Rarity preset saved. Startup loading is off; sliders will start at vanilla unless you load the preset."
+    ));
+  }
   document.querySelectorAll("[data-rarity-action]").forEach((button) => {
     button.addEventListener("click", () => runRarityAction(button.dataset.rarityAction));
   });
@@ -4219,8 +4517,13 @@ function wireEvents() {
   els.bookmarkSearch.addEventListener("input", renderBookmarks);
   els.bookmarkGroupFilter.addEventListener("change", renderBookmarks);
   els.bookmarkNewBtn.addEventListener("click", clearBookmarkForm);
+  els.bookmarkImportBtn.addEventListener("click", importBookmarkFromSerialTools);
   els.bookmarkSaveBtn.addEventListener("click", saveBookmark);
+  els.bookmarkDuplicateBtn.addEventListener("click", duplicateBookmark);
   els.bookmarkDeleteBtn.addEventListener("click", deleteBookmark);
+  els.bookmarkSelectAllBtn.addEventListener("click", selectAllVisibleBookmarks);
+  els.bookmarkClearSelectedBtn.addEventListener("click", clearBookmarkSelection);
+  els.bookmarkCopySelectedBtn.addEventListener("click", copySelectedBookmarkSerials);
   els.bookmarkValidateBtn.addEventListener("click", validateBookmarkSerial);
   els.bookmarkCopyBtn.addEventListener("click", copyBookmarkSerial);
   els.bookmarkSerial.addEventListener("input", () => invalidateBookmarkConfirmation());
@@ -4334,6 +4637,9 @@ function wireEvents() {
   document.getElementById("downloadBtn").addEventListener("click", () => window.msbt.openExternal(state.latestDownloadUrl));
   const manualZipBtn = document.getElementById("manualZipBtn");
   if (manualZipBtn) manualZipBtn.addEventListener("click", () => window.msbt.openExternal(state.manualZipDownloadUrl));
+  if (els.savedDataRefreshBtn) els.savedDataRefreshBtn.addEventListener("click", refreshSavedDataInfo);
+  if (els.savedDataOpenBtn) els.savedDataOpenBtn.addEventListener("click", openSavedDataFolder);
+  if (els.savedDataBackupBtn) els.savedDataBackupBtn.addEventListener("click", exportSavedDataBackup);
   const detectSdkModsBtn = document.getElementById("detectSdkModsBtn");
   if (detectSdkModsBtn) detectSdkModsBtn.addEventListener("click", detectSdkModsFolder);
   const browseSdkModsBtn = document.getElementById("browseSdkModsBtn");
@@ -4440,8 +4746,9 @@ async function init() {
     window.msbt.onUpdateState(renderUpdateState);
   }
   await refreshVersionInfo();
+  await refreshSavedDataInfo();
   syncDevSpawnerAdvancedControls();
-  await Promise.all([loadItemPools(), loadTravelResources(), loadDevSpawnerCatalog(), loadDevSpawnerFavorites(), loadSerialBookmarks(), loadBl4Catalog(), loadMovementSettings()]);
+  await Promise.all([loadItemPools(), loadTravelResources(), loadDevSpawnerCatalog(), loadDevSpawnerFavorites(), loadSerialBookmarks(), loadBl4Catalog(), loadMovementSettings(), loadRaritySettings()]);
   await bridgeStatus();
   startBridgeStatusPolling();
   await checkUpdates({ startup: true });

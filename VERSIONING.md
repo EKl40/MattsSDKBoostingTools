@@ -43,9 +43,9 @@ Use these title patterns:
 
 Use these Windows asset names:
 
-- Installer: `MattsSDKBoostingTools-Setup-v0.3.0-beta.1.exe`
-- Portable ZIP: `MattsSDKBoostingTools-Portable-v0.3.0-beta.1.zip`
-- Electron unpacked ZIP, if produced later: `MattsSDKBoostingTools-v0.3.0-beta.1-win-x64.zip`
+- Installer: `MSBT-Installer-v0.3.0-beta.1.exe`
+- Portable ZIP: `MSBT-Portable-v0.3.0-beta.1-win-x64.zip`
+- Legacy Tkinter rollback ZIP, if included: `MattsSDKBoostingTools-Legacy-Tkinter-Portable-v0.3.0-beta.1.zip`
 
 Electron updater metadata may remain named `latest.yml`, because that filename is expected by Electron tooling, but its contained `version` must match `electron_poc/package.json`.
 
@@ -53,8 +53,8 @@ Electron updater metadata may remain named `latest.yml`, because that filename i
 
 1. Update `electron_poc/package.json` and `electron_poc/package-lock.json`.
 2. Commit the version change and related release notes.
-3. Build the SDK mod and Electron installer with `.\build_electron_beta.ps1 -Installer`.
-4. Build the portable package with `.\package_external_beta.ps1`.
+3. Build the SDK mod, Electron installer, and Electron portable ZIP with `.\build_electron_beta.ps1 -Installer`.
+4. Optionally build the legacy Tkinter rollback ZIP with `.\package_external_beta.ps1`.
 5. Create the semantic tag, for example `v0.2.3-beta.1`.
 6. Push the tag.
 7. Publish assets with `.\publish_github_release.ps1`.

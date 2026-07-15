@@ -759,6 +759,10 @@ button.secondary {
   background: rgba(36, 68, 102, .5);
 }
 
+.bookmark-row.checked {
+  border-left: 3px solid var(--green);
+}
+
 .bookmark-title,
 .bookmark-serial {
   display: block;

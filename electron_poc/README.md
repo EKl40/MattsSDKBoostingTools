@@ -42,7 +42,7 @@ Installer builds use `electron-builder` with NSIS. They do not publish to GitHub
 Installer filenames are derived from `electron_poc/package.json`, for example:
 
 ```text
-MattsSDKBoostingTools-Setup-v0.2.3-beta.1.exe
+MSBT-Installer-v0.2.3-beta.1.exe
 ```
 
 ## Updates

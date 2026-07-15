@@ -1,6 +1,6 @@
 {
   "name": "matts-sdk-boosting-tools-electron-beta",
-  "version": "0.2.3-beta.4",
+  "version": "0.2.3-beta.5",
   "private": true,
   "description": "Electron beta shell for Matt's SDK Boosting Tools.",
   "author": "FunkYouSHiFT",
@@ -8,7 +8,7 @@
   "scripts": {
     "start": "electron .",
     "smoke": "electron . --smoke",
-    "check": "node --check main.js && node --check preload.js && node --check renderer.js && node --check dev_spawner_favorites_store.js && node --check serial_bookmarks_store.js && node --check movement_settings_store.js && node --check bl4_codes_catalog.js",
+    "check": "node --check main.js && node --check preload.js && node --check renderer.js && node --check dev_spawner_favorites_store.js && node --check serial_bookmarks_store.js && node --check movement_settings_store.js && node --check rarity_settings_store.js && node --check bl4_codes_catalog.js",
     "pack": "electron-builder --dir --publish never",
     "dist:win": "electron-builder --win nsis --publish never"
   },
@@ -16,7 +16,7 @@
     "appId": "com.funkyoushift.msbt.electronbeta",
     "productName": "Matt's SDK Boosting Tools",
     "executableName": "MattsSDKBoostingTools",
-    "artifactName": "MattsSDKBoostingTools-Setup-v${version}.${ext}",
+    "artifactName": "MSBT-Installer-v${version}.${ext}",
     "directories": {
       "output": "../dist_electron"
     },

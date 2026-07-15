@@ -81,6 +81,7 @@ serial_tools_status: str = "Paste a @U serial or deserialized serial text above.
 _movement_no_target_enabled = False
 _movement_noclip_enabled = False
 _rarity_weights: dict[str, float] = {key: 1.0 for key, _label, _fields in RARITY_ROWS}
+_rarity_baseline: dict[str, dict[str, float]] = {}
 _DEV_SPAWNER_SAFE_TOKEN = re.compile(r"^[A-Za-z0-9_./:-]+$")
 _DEV_SPAWNER_SAFE_STATE_LIST = re.compile(r"^[A-Za-z0-9_,./:-]+$")
 _ASD_COMMAND_ATTRS = {
@@ -1596,12 +1597,50 @@ def _rarity_get_modifier(state: object | None, fields: tuple[str, ...]) -> objec
     return None
 
 
+def _rarity_read_float(mod: object | None, name: str) -> float | None:
+    if mod is None:
+        return None
+    try:
+        if hasattr(mod, name):
+            return float(getattr(mod, name))
+    except Exception:
+        return None
+    return None
+
+
+def _rarity_snapshot_modifier(mod: object | None) -> dict[str, float]:
+    snapshot: dict[str, float] = {}
+    for name in ("Value", "CurrentValue", "Current", "BaseValue", "Base", "InitialValue"):
+        value = _rarity_read_float(mod, name)
+        if value is not None:
+            snapshot[name] = value
+    return snapshot
+
+
+def _rarity_capture_baseline(state: object | None) -> None:
+    if state is None or _rarity_baseline:
+        return
+    for key, _label, fields in RARITY_ROWS:
+        mod = _rarity_get_modifier(state, fields)
+        snapshot = _rarity_snapshot_modifier(mod)
+        if snapshot:
+            _rarity_baseline[key] = snapshot
+
+
+def _rarity_baseline_value(key: str) -> float:
+    snapshot = _rarity_baseline.get(key, {})
+    for name in ("Value", "CurrentValue", "Current", "BaseValue", "Base", "InitialValue"):
+        if name in snapshot:
+            return float(snapshot[name])
+    return 1.0
+
+
 def _rarity_set_float(mod: object | None, value: float) -> int:
     if mod is None:
         return 0
     writes = 0
     value = max(0.0, min(1.0, float(value)))
-    for name in ("Value", "CurrentValue", "Current", "BaseValue", "InitialValue", "Base"):
+    for name in ("Value", "CurrentValue", "Current", "BaseValue", "Base"):
         try:
             if hasattr(mod, name):
                 setattr(mod, name, value)
@@ -1619,10 +1658,69 @@ def _rarity_set_float(mod: object | None, value: float) -> int:
     return writes
 
 
+def _rarity_restore_snapshot(mod: object | None, snapshot: dict[str, float]) -> int:
+    if mod is None:
+        return 0
+    writes = 0
+    for name, value in snapshot.items():
+        try:
+            if hasattr(mod, name):
+                setattr(mod, name, float(value))
+                writes += 1
+        except Exception:
+            pass
+    method_values = {
+        "SetValue": snapshot.get("Value", snapshot.get("CurrentValue", snapshot.get("Current"))),
+        "SetBaseValue": snapshot.get("BaseValue", snapshot.get("Base")),
+        "SetCurrentValue": snapshot.get("CurrentValue", snapshot.get("Current", snapshot.get("Value"))),
+    }
+    for name, value in method_values.items():
+        if value is None:
+            continue
+        try:
+            fn = getattr(mod, name, None)
+            if callable(fn):
+                fn(float(value))
+                writes += 1
+        except Exception:
+            pass
+    return writes
+
+
+def _rarity_sync_optional_blimgui_reset() -> None:
+    panel = None
+    for name in (f"{__package__}.blimgui_panel", "MattsSDKBoostingTools.blimgui_panel"):
+        panel = sys.modules.get(name)
+        if panel is not None:
+            break
+    if panel is None:
+        return
+    try:
+        setattr(panel, "_rarity_auto_reapply", False)
+        setattr(panel, "_rarity_reapply_until", 0.0)
+        setattr(panel, "_rarity_reapply_next_try", 0.0)
+    except Exception:
+        pass
+    try:
+        panel_weights = getattr(panel, "_rarity_weights", None)
+        if isinstance(panel_weights, dict):
+            for key, _label, _fields in RARITY_ROWS:
+                panel_weights[key] = 1.0
+    except Exception:
+        pass
+    try:
+        save_settings = getattr(panel, "_rarity_save_settings", None)
+        if callable(save_settings):
+            save_settings()
+    except Exception:
+        pass
+
+
 def _rarity_apply_current() -> dict[str, Any]:
     state = _rarity_state_for_gamestate(_rarity_current_gamestate())
     if state is None:
         return {"ok": False, "message": "No GameState.RarityState found yet. Load into a world and try again."}
+    _rarity_capture_baseline(state)
     writes = 0
     parts: list[str] = []
     for key, label, fields in RARITY_ROWS:
@@ -1647,9 +1745,26 @@ def rarity_apply(payload: dict[str, Any] | None = None) -> dict[str, Any]:
 
 
 def rarity_reset() -> dict[str, Any]:
-    for key, _label, _fields in RARITY_ROWS:
-        _rarity_weights[key] = 1.0
-    return _rarity_apply_current()
+    state = _rarity_state_for_gamestate(_rarity_current_gamestate())
+    if state is None:
+        for key, _label, _fields in RARITY_ROWS:
+            _rarity_weights[key] = 1.0
+        _rarity_sync_optional_blimgui_reset()
+        return {"ok": False, "message": "No GameState.RarityState found yet. Rarity override state was cleared; load into a world and try again."}
+    _rarity_capture_baseline(state)
+    writes = 0
+    parts: list[str] = []
+    for key, label, fields in RARITY_ROWS:
+        baseline_value = _rarity_baseline_value(key)
+        _rarity_weights[key] = baseline_value
+        snapshot = dict(_rarity_baseline.get(key, {}))
+        if snapshot:
+            writes += _rarity_restore_snapshot(_rarity_get_modifier(state, fields), snapshot)
+        else:
+            writes += _rarity_set_float(_rarity_get_modifier(state, fields), 1.0)
+        parts.append(f"{label}=vanilla")
+    _rarity_sync_optional_blimgui_reset()
+    return {"ok": True, "message": "Rarity drop weights reset to captured vanilla values and live override is off: " + ", ".join(parts) + f". Writes: {writes}."}
 
 
 def rarity_only(allowed_key: object) -> dict[str, Any]:

@@ -60,7 +60,8 @@ $ExpectedTagName = "v$PackageVersion"
 $Prerelease = Test-PrereleaseVersion $PackageVersion
 $ZipName = "MattsSDKBoostingTools-Legacy-Tkinter-Portable-v$PackageVersion.zip"
 $ZipPath = Join-Path $RepoRoot $ZipName
-$ElectronInstallerName = "MattsSDKBoostingTools-Setup-v$PackageVersion.exe"
+$LegacyZipExists = Test-Path $ZipPath
+$ElectronInstallerName = "MSBT-Installer-v$PackageVersion.exe"
 
 if ($TagName -and $TagName -ne $ExpectedTagName) {
     throw "TagName '$TagName' does not match electron_poc\package.json version '$ExpectedTagName'."
@@ -73,10 +74,6 @@ if (-not $Title) {
 }
 if ($Title -match '\d{8,}|beta-[0-9a-f]{6,}|run|workflow|commit') {
     throw "Release title must not be generated from timestamps, run IDs, or commit hashes: $Title"
-}
-
-if (-not (Test-Path $ZipPath)) {
-    throw "Portable ZIP not found: $ZipPath. Run .\package_external_beta.ps1 first."
 }
 
 $ElectronInstaller = Join-Path $ElectronDist $ElectronInstallerName
@@ -111,7 +108,7 @@ if (Test-Path $blockMap) {
 }
 $ElectronAssets += $latestYml
 $ElectronAssets += $ManifestPath
-$ElectronUnpackedZipName = "MattsSDKBoostingTools-Electron-Portable-v$PackageVersion-win-x64.zip"
+$ElectronUnpackedZipName = "MSBT-Portable-v$PackageVersion-win-x64.zip"
 $ElectronUnpackedZip = Join-Path $ElectronDist $ElectronUnpackedZipName
 if (Test-Path $ElectronUnpackedZip) {
     $ElectronAssets += $ElectronUnpackedZip
@@ -131,6 +128,24 @@ if (Test-Path $ManifestPath) {
     if ($Manifest.package_version -and [string]$Manifest.package_version -ne $PackageVersion) {
         throw "releases\latest.json package_version '$($Manifest.package_version)' does not match package version '$PackageVersion'. Run .\package_external_beta.ps1."
     }
+}
+
+$LegacyNotes = if ($LegacyZipExists) {
+@"
+
+**Legacy Tkinter rollback ZIP**
+
+- $ZipName
+
+This is the older Tkinter/manual package. Use it only as a rollback if the Electron beta has a blocker.
+"@
+} else {
+@"
+
+**Legacy Tkinter rollback ZIP**
+
+No legacy rollback ZIP was included in this release.
+"@
 }
 
 $notes = @"
@@ -161,12 +176,7 @@ Download and extract:
 - $ElectronUnpackedZipName
 
 Use this if you want the Electron app without running the installer. It contains the Electron app files plus bundled SDK mod/update resources.
-
-**Legacy rollback ZIP**
-
-- $ZipName
-
-This is the older Tkinter/manual package kept as a rollback while Electron beta testing continues.
+$LegacyNotes
 
 **Do not manually download these unless you know why**
 
@@ -208,7 +218,11 @@ try {
 }
 
 if ($releaseExists) {
-    $assets = @($ZipPath) + $ElectronAssets
+    $assets = @()
+    if ($LegacyZipExists) {
+        $assets += $ZipPath
+    }
+    $assets += $ElectronAssets
     & gh release upload $TagName @assets --repo $Repository --clobber
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to upload assets to existing GitHub Release $TagName."
@@ -224,7 +238,11 @@ if ($releaseExists) {
         throw "Failed to update GitHub Release $TagName metadata."
     }
 } else {
-    $assets = @($ZipPath) + $ElectronAssets
+    $assets = @()
+    if ($LegacyZipExists) {
+        $assets += $ZipPath
+    }
+    $assets += $ElectronAssets
     $ghArgs = @("release", "create", $TagName) + $assets + @("--repo", $Repository, "--title", $Title, "--notes-file", $NotesPath)
     if ($Draft) {
         $ghArgs += "--draft"
