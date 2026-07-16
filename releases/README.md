@@ -13,6 +13,4 @@ Electron release assets should use clear names:
 - `MSBT-Installer-v...exe`
 - `MSBT-Portable-v...-win-x64.zip`
 
-Legacy Tkinter rollback ZIPs are optional and should stay clearly labeled as legacy.
-
 For install instructions, start with the top of the main [README](../README.md).

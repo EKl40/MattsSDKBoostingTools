@@ -22,7 +22,6 @@ Go to the [GitHub Releases page](https://github.com/funkyoushift/MattsSDKBoostin
 | --- | --- | --- |
 | Recommended normal install | `MSBT-Installer-v...exe` | Windows installer. Adds app shortcuts and installs the bundled SDK mod plus ActorScriptDeployer into the detected Borderlands 4 `sdk_mods` folder. |
 | Manual install / no installer | `MSBT-Portable-v...-win-x64.zip` | Extract it yourself. Electron app files plus bundled SDK mod/update resources. |
-| Legacy rollback | `MattsSDKBoostingTools-Legacy-Tkinter-Portable-v...zip` | Older Tkinter/manual package kept available only as a rollback. |
 | Source code only | GitHub `Source code (zip)` / `Source code (tar.gz)` | For developers. This is not the ready-to-run app. |
 
 Do **not** manually download `latest.json`, `latest.yml`, or `.blockmap` files. Those are update-system files used by the app/installer.
@@ -57,24 +56,24 @@ The current public direction is:
 - Make BLImGui optional.
 - Run live game actions through a small SDK bridge.
 - Move non-game UI/catalog/serial/build logic into the Electron app.
-- Keep the older Tkinter app as legacy/reference only while Electron becomes the main user-facing path.
+- Keep the older Tkinter app as legacy/reference code only.
 - Package Electron with the bundled SDK mod, ActorScriptDeployer, resources, and a portable Python runtime.
 
 ## Package Contents
 
-Legacy/manual Tkinter rollback packages contain:
+Current Electron installer/portable packages contain:
 
 ```text
-MSBT_External_Beta/
-  Launch_MSBT_External_App.bat
-  ActorScriptDeployer/
-    __init__.py
-    pyproject.toml
-  MattsSDKBoostingTools.sdkmod
-  MattsSDKBoostingTools_external/
-    MattsBoostingToolsExternal.exe
-    matt_editor/
-    resources/
+Matt's SDK Boosting Tools/
+  MattsSDKBoostingTools.exe
+  resources/
+    sdkmod/
+      MattsSDKBoostingTools.sdkmod
+    sdkmods/
+      ActorScriptDeployer/
+    external_app/
+    python/
+    releases/
 ```
 
 ## Build From Source
@@ -84,10 +83,10 @@ Users who do not want to run a prebuilt EXE can build it locally.
 Requirements:
 
 - Windows
-- Python with Tkinter available
-- pip
+- Node.js / npm
+- Python 3.13
 
-The build script installs the external-app build requirements from `requirements-external-build.txt`, including PyInstaller and pywebview. `pywebview` is bundled into the packaged EXE so users do not need to install it.
+The Electron build bundles a portable Python runtime so normal users do not need Python installed.
 
 Build the Electron app:
 
@@ -100,22 +99,6 @@ Build the Electron Windows installer:
 ```powershell
 .\build_electron_beta.ps1 -Installer
 ```
-
-The legacy Tkinter package script is kept only for rollback builds:
-
-```powershell
-.\package_external_beta.ps1
-```
-
-The legacy package script creates:
-
-```text
-MSBT_External_Beta/
-MattsSDKBoostingTools-Legacy-Tkinter-Portable-v<version>.zip
-releases/latest.json
-```
-
-The legacy Tkinter packaging script and folder still use the historical `MSBT_External_Beta` name for compatibility with existing automation. Current public releases use stable SemVer tags and the Electron installer/portable ZIP names above.
 
 Publish release assets to GitHub Releases instead of committing ZIP/EXE files to source:
 
@@ -146,7 +129,7 @@ docs/
 
 ## What Replaced BLImGui
 
-The main user-facing app is now the Electron desktop app. The older Python/Tkinter app remains in the repository as legacy/reference material and as a rollback package when needed.
+The main user-facing app is now the Electron desktop app. The older Python/Tkinter app remains in the repository as legacy/reference material.
 
 BLImGui-specific code is still kept in the SDK mod as an optional in-game UI. The Electron app does not import BLImGui, `unrealsdk`, `mods_base`, or live SDK modules. It talks to the SDK mod over HTTP for live game actions only.
 

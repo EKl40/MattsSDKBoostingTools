@@ -45,23 +45,9 @@ jobs:
             throw "Tag '$actualTag' does not match package version '$expectedTag'."
           }
 
-      - name: Build portable package
-        shell: pwsh
-        run: |
-          .\build_external_exe.ps1
-          .\package_external_beta.ps1
-
       - name: Build Electron installer
         shell: pwsh
         run: .\build_electron_beta.ps1 -Installer
-
-      - name: Create Electron unpacked ZIP
-        shell: pwsh
-        run: |
-          $version = (Get-Content -Raw .\electron_poc\package.json | ConvertFrom-Json).version
-          $zip = ".\dist_electron\MSBT-Portable-v$version-win-x64.zip"
-          if (Test-Path $zip) { Remove-Item -Force $zip }
-          Compress-Archive -Path ".\dist_electron\win-unpacked\*" -DestinationPath $zip
 
       - name: Validate release assets
         shell: pwsh
@@ -72,7 +58,6 @@ jobs:
             ".\dist_electron\MSBT-Installer-v$version.exe.blockmap",
             ".\dist_electron\latest.yml",
             ".\releases\latest.json",
-            ".\MattsSDKBoostingTools-Legacy-Tkinter-Portable-v$version.zip",
             ".\dist_electron\MSBT-Portable-v$version-win-x64.zip"
           )
           foreach ($path in $required) {
@@ -112,10 +97,6 @@ jobs:
             "",
             "See commit history for fixes included in this build.",
             "",
-            "### Known issues",
-            "",
-            "The Electron app is now the main path. Keep the legacy/Tkinter package available only as a rollback.",
-            "",
             "### Download: pick ONE",
             "",
             "**Recommended for almost everyone**",
@@ -131,10 +112,6 @@ jobs:
             "``MSBT-Portable-v$version-win-x64.zip``",
             "",
             "Use this if you want the Electron app without running the installer. It contains the Electron app files plus bundled SDK mod/update resources.",
-            "",
-            "**Legacy rollback ZIP**",
-            "",
-            "``MattsSDKBoostingTools-Legacy-Tkinter-Portable-v$version.zip`` is the older Tkinter/manual package kept only as a rollback.",
             "",
             "**Do not manually download these unless you know why**",
             "",
@@ -162,7 +139,6 @@ jobs:
             ".\dist_electron\MSBT-Installer-v$version.exe.blockmap",
             ".\dist_electron\latest.yml",
             ".\releases\latest.json",
-            ".\MattsSDKBoostingTools-Legacy-Tkinter-Portable-v$version.zip",
             ".\dist_electron\MSBT-Portable-v$version-win-x64.zip"
           )
           $args = @("release", "create", $tag) + $assets + @("--title", $title, "--notes-file", $notesPath, "--verify-tag")

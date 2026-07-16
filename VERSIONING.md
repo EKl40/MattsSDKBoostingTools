@@ -45,7 +45,6 @@ Use these Windows asset names:
 
 - Installer: `MSBT-Installer-v1.0.0.exe`
 - Portable ZIP: `MSBT-Portable-v1.0.0-win-x64.zip`
-- Legacy Tkinter rollback ZIP, if included: `MattsSDKBoostingTools-Legacy-Tkinter-Portable-v1.0.0.zip`
 
 Electron updater metadata may remain named `latest.yml`, because that filename is expected by Electron tooling, but its contained `version` must match `electron_poc/package.json`.
 
@@ -54,10 +53,9 @@ Electron updater metadata may remain named `latest.yml`, because that filename i
 1. Update `electron_poc/package.json` and `electron_poc/package-lock.json`.
 2. Commit the version change and related release notes.
 3. Build the SDK mod, Electron installer, and Electron portable ZIP with `.\build_electron_beta.ps1 -Installer`.
-4. Optionally build the legacy Tkinter rollback ZIP with `.\package_external_beta.ps1`.
-5. Create the semantic tag, for example `v1.0.0`.
-6. Push the tag.
-7. Publish assets with `.\publish_github_release.ps1`.
+4. Create the semantic tag, for example `v1.0.0`.
+5. Push the tag.
+6. Publish assets with `.\publish_github_release.ps1`.
 
 The publisher refuses to publish when:
 

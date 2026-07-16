@@ -58,9 +58,6 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
 $PackageVersion = Get-ElectronPackageVersion
 $ExpectedTagName = "v$PackageVersion"
 $Prerelease = Test-PrereleaseVersion $PackageVersion
-$ZipName = "MattsSDKBoostingTools-Legacy-Tkinter-Portable-v$PackageVersion.zip"
-$ZipPath = Join-Path $RepoRoot $ZipName
-$LegacyZipExists = Test-Path $ZipPath
 $ElectronInstallerName = "MSBT-Installer-v$PackageVersion.exe"
 
 if ($TagName -and $TagName -ne $ExpectedTagName) {
@@ -90,15 +87,15 @@ if ($latestYmlText -notmatch "(?m)^version:\s*$([regex]::Escape($PackageVersion)
     throw "latest.yml version does not match package version $PackageVersion."
 }
 if (-not (Test-Path $ManifestPath)) {
-    throw "Release update manifest not found: $ManifestPath. Run .\package_external_beta.ps1 first."
+    throw "Release update manifest not found: $ManifestPath."
 }
 $PackagedManifestPath = Join-Path $ElectronDist "win-unpacked\resources\releases\latest.json"
 if (-not (Test-Path $PackagedManifestPath)) {
-    throw "Packaged Electron release manifest not found: $PackagedManifestPath. Run .\package_external_beta.ps1, then .\build_electron_beta.ps1 -Installer."
+    throw "Packaged Electron release manifest not found: $PackagedManifestPath. Run .\build_electron_beta.ps1 -Installer."
 }
 $PackagedManifest = Get-Content -Raw $PackagedManifestPath | ConvertFrom-Json
 if ([string]$PackagedManifest.package_version -ne $PackageVersion) {
-    throw "Packaged Electron release manifest package_version '$($PackagedManifest.package_version)' does not match package version '$PackageVersion'. Run .\package_external_beta.ps1, then .\build_electron_beta.ps1 -Installer."
+    throw "Packaged Electron release manifest package_version '$($PackagedManifest.package_version)' does not match package version '$PackageVersion'. Run .\build_electron_beta.ps1 -Installer."
 }
 
 $ElectronAssets = @($ElectronInstaller)
@@ -126,26 +123,8 @@ $Manifest = $null
 if (Test-Path $ManifestPath) {
     $Manifest = Get-Content -Raw $ManifestPath | ConvertFrom-Json
     if ($Manifest.package_version -and [string]$Manifest.package_version -ne $PackageVersion) {
-        throw "releases\latest.json package_version '$($Manifest.package_version)' does not match package version '$PackageVersion'. Run .\package_external_beta.ps1."
+        throw "releases\latest.json package_version '$($Manifest.package_version)' does not match package version '$PackageVersion'."
     }
-}
-
-$LegacyNotes = if ($LegacyZipExists) {
-@"
-
-**Legacy Tkinter rollback ZIP**
-
-- $ZipName
-
-This is the older Tkinter/manual package. Use it only as a rollback if the current Electron app has a blocker.
-"@
-} else {
-@"
-
-**Legacy Tkinter rollback ZIP**
-
-No legacy rollback ZIP was included in this release.
-"@
 }
 
 $notes = @"
@@ -156,10 +135,6 @@ Matt's SDK Boosting Tools desktop app release.
 ### Fixed
 
 See the repository commit history for fixes included in this build.
-
-### Known issues
-
-The Electron app is now the main path. Keep the legacy/Tkinter package available only as a rollback.
 
 ### Download: pick ONE
 
@@ -176,7 +151,6 @@ Download and extract:
 - $ElectronUnpackedZipName
 
 Use this if you want the Electron app without running the installer. It contains the Electron app files plus bundled SDK mod/update resources.
-$LegacyNotes
 
 **Do not manually download these unless you know why**
 
@@ -219,9 +193,6 @@ try {
 
 if ($releaseExists) {
     $assets = @()
-    if ($LegacyZipExists) {
-        $assets += $ZipPath
-    }
     $assets += $ElectronAssets
     & gh release upload $TagName @assets --repo $Repository --clobber
     if ($LASTEXITCODE -ne 0) {
@@ -239,9 +210,6 @@ if ($releaseExists) {
     }
 } else {
     $assets = @()
-    if ($LegacyZipExists) {
-        $assets += $ZipPath
-    }
     $assets += $ElectronAssets
     $ghArgs = @("release", "create", $TagName) + $assets + @("--repo", $Repository, "--title", $Title, "--notes-file", $NotesPath)
     if ($Draft) {

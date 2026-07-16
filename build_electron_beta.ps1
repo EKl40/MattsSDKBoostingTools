@@ -11,6 +11,7 @@ $OutputRoot = Join-Path $RepoRoot "dist_electron"
 $ElectronPackageJson = Join-Path $ElectronRoot "package.json"
 $ReleaseManifest = Join-Path $RepoRoot "releases\latest.json"
 $PrepareElectronPython = Join-Path $RepoRoot "tools\prepare_electron_python.ps1"
+$SourceGzoCatalog = Join-Path $RepoRoot "external_app\v22_parts_codes_fixed\resources\MattsSDKBoostingTools_gzo_codes.json"
 
 function Invoke-Checked {
     param(
@@ -38,14 +39,58 @@ function Assert-ReleaseManifestVersion {
     param([Parameter(Mandatory=$true)][string]$ExpectedVersion)
 
     if (-not (Test-Path $ReleaseManifest)) {
-        throw "Release manifest not found: $ReleaseManifest. Run .\package_external_beta.ps1 before building Electron so the app bundles the current update manifest."
+        throw "Release manifest not found: $ReleaseManifest. Update releases\latest.json before building Electron so the app bundles the current update manifest."
     }
 
     $manifest = Get-Content -Raw $ReleaseManifest | ConvertFrom-Json
     $manifestVersion = [string]$manifest.package_version
     if ($manifestVersion -ne $ExpectedVersion) {
-        throw "Release manifest package_version '$manifestVersion' does not match Electron version '$ExpectedVersion'. Run .\package_external_beta.ps1 before .\build_electron_beta.ps1 -Installer."
+        throw "Release manifest package_version '$manifestVersion' does not match Electron version '$ExpectedVersion'. Update releases\latest.json before .\build_electron_beta.ps1 -Installer."
     }
+}
+
+function Assert-GzoCatalogImages {
+    param(
+        [string]$CatalogPath = $SourceGzoCatalog,
+        [string]$Label = "Bundled GZO catalog"
+    )
+
+    if (-not (Test-Path $CatalogPath)) {
+        throw "$Label not found: $CatalogPath"
+    }
+
+    $catalog = Get-Content -Raw $CatalogPath | ConvertFrom-Json
+    if ($catalog -is [System.Array]) {
+        $entries = @($catalog)
+    } elseif ($catalog.entries) {
+        $entries = @($catalog.entries)
+    } elseif ($catalog.codes) {
+        $entries = @($catalog.codes)
+    } else {
+        $entries = @()
+    }
+
+    if ($entries.Count -eq 0) {
+        throw "$Label has no rows: $CatalogPath"
+    }
+
+    $imageFieldNames = @("image_url", "imageUrl", "image", "thumbnail", "screenshot", "screenshot_url", "photo", "picture")
+    $imageCount = 0
+    foreach ($entry in $entries) {
+        foreach ($fieldName in $imageFieldNames) {
+            $property = $entry.PSObject.Properties[$fieldName]
+            if ($null -ne $property -and -not [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+                $imageCount += 1
+                break
+            }
+        }
+    }
+
+    if ($imageCount -eq 0) {
+        throw "$Label has $($entries.Count) row(s) but no image URLs. Run 'node .\tools\refresh_gzo_release_catalog.js' before packaging a release."
+    }
+
+    Write-Host "${Label}: $($entries.Count) row(s), $imageCount image URL row(s)."
 }
 
 if (-not (Test-Path $NodeModules)) {
@@ -57,6 +102,7 @@ if (-not (Test-Path $PrepareElectronPython)) {
 
 $ElectronVersion = Get-ElectronPackageVersion
 Assert-ReleaseManifestVersion $ElectronVersion
+Assert-GzoCatalogImages -CatalogPath $SourceGzoCatalog -Label "Source GZO catalog"
 
 Push-Location $RepoRoot
 try {
@@ -116,7 +162,8 @@ $RequiredPackageFiles = @(
     "resources\sdkmod\MattsSDKBoostingTools.sdkmod",
     "resources\sdkmods\ActorScriptDeployer\__init__.py",
     "resources\releases\latest.json",
-    "resources\external_app\v22_parts_codes_fixed\resources\ui_layout.json"
+    "resources\external_app\v22_parts_codes_fixed\resources\ui_layout.json",
+    "resources\external_app\v22_parts_codes_fixed\resources\MattsSDKBoostingTools_gzo_codes.json"
 )
 foreach ($relativePath in $RequiredPackageFiles) {
     $fullPath = Join-Path $UnpackedRoot $relativePath
@@ -124,6 +171,8 @@ foreach ($relativePath in $RequiredPackageFiles) {
         throw "Electron package is missing required runtime file: $relativePath"
     }
 }
+$PackagedGzoCatalog = Join-Path $UnpackedRoot "resources\external_app\v22_parts_codes_fixed\resources\MattsSDKBoostingTools_gzo_codes.json"
+Assert-GzoCatalogImages -CatalogPath $PackagedGzoCatalog -Label "Packaged GZO catalog"
 Remove-Item -LiteralPath $PortableStageRoot -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $PortableZipPath -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $PortableStageDir | Out-Null
