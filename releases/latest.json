@@ -3,8 +3,8 @@
     "app_version":  "1.0.0",
     "sdkmod_version":  "1.0.0",
     "resources_version":  "1.0.0",
-    "git_commit":  "8fa70c72ae93c8686946a04b366eea9c782a5357",
-    "built_at_utc":  "2026-07-15T19:14:51Z",
+    "git_commit":  "7568b40c553809f235f0af5a55d0988a03f737c5",
+    "built_at_utc":  "2026-07-16T05:58:59Z",
     "sdk_required":  "oak2-mod-manager v0.3",
     "sdk_required_url":  "https://github.com/bl-sdk/oak2-mod-manager/releases/tag/v0.3",
     "download_url":  "https://github.com/funkyoushift/MattsSDKBoostingTools/releases/download/v1.0.0/MSBT-Portable-v1.0.0-win-x64.zip",
@@ -19,6 +19,6 @@
     "external_exe_sha256":  "8d0e4c3b49749966e97d396f38bc2cc45787047a70b22a484bf94ad0ffe82047",
     "sdkmod_sha256":  "cdbc8ca9fcf01553a9242d1eccb7fa2354c3036acafa7911f7fbbd7faac118d7",
     "ui_layout_sha256":  "e497ab3fa08b8a94ed2907abc46f32f75fa7da5bd6c77670e501ad515baa1ecb",
-    "legacy_tkinter_zip_sha256":  "b8aefbbe6653cda939a0b53761eaa910ed916c67b930410e02607ab95e7519c0",
-    "beta_zip_sha256":  "b8aefbbe6653cda939a0b53761eaa910ed916c67b930410e02607ab95e7519c0"
+    "legacy_tkinter_zip_sha256":  "2047d1d749975c2197320f2ff3f6925428318db903ee825bd838b0772de5bdb8",
+    "beta_zip_sha256":  "2047d1d749975c2197320f2ff3f6925428318db903ee825bd838b0772de5bdb8"
 }
