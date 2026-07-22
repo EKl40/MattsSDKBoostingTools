@@ -132,6 +132,99 @@
             console.log('processGameData (flattened): Loaded ' + total + ' parts in ' + typeIdMap.size + ' type IDs');
         }
 
+        function mergeMsbtPartSupplements() {
+            const supplements = [];
+            if (typeof window !== 'undefined') {
+                if (Array.isArray(window.MSBT_GZO_FAMILY_PART_SUPPLEMENT)) {
+                    supplements.push({
+                        label: 'GZO family data',
+                        entries: window.MSBT_GZO_FAMILY_PART_SUPPLEMENT
+                    });
+                }
+                if (Array.isArray(window.MSBT_OBSERVED_MODDED_PART_SUPPLEMENT)) {
+                    supplements.push({
+                        label: 'observed modded catalog',
+                        entries: window.MSBT_OBSERVED_MODDED_PART_SUPPLEMENT
+                    });
+                }
+            }
+            if (supplements.length === 0) return 0;
+
+            let added = 0;
+            for (const supplementInfo of supplements) {
+                let supplementAdded = 0;
+                for (const entry of supplementInfo.entries) {
+                    if (!entry || !entry.fullId) continue;
+                    const fullId = String(entry.fullId);
+                    if (partsMap.has(fullId)) continue;
+
+                    const typeId = parseInt(entry.typeId, 10);
+                    const partId = parseInt(entry.partId, 10);
+                    if (!Number.isFinite(typeId) || !Number.isFinite(partId)) continue;
+
+                    if (!typeIdMap.has(typeId)) {
+                        const typeLabel = entry.typeLabel || `Type ${typeId}`;
+                        typeIdMap.set(typeId, {
+                            id: typeId,
+                            name: typeLabel,
+                            category: entry.category || 'Part',
+                            manufacturer: entry.manufacturer || null,
+                            context: entry.context || null
+                        });
+                    } else if (entry.typeLabel) {
+                        const existing = typeIdMap.get(typeId);
+                        if (existing && (!existing.name || existing.name === `Type ${typeId}`)) {
+                            existing.name = entry.typeLabel;
+                        }
+                        if (existing && entry.category && (!existing.category || existing.category === 'Part')) {
+                            existing.category = entry.category;
+                        }
+                        if (existing && entry.manufacturer && !existing.manufacturer) {
+                            existing.manufacturer = entry.manufacturer;
+                        }
+                    }
+                    if (!partsByTypeId.has(typeId)) {
+                        partsByTypeId.set(typeId, []);
+                    }
+
+                    const typeLabel = entry.typeLabel || `Type ${typeId}`;
+                    const partType = entry.partType || typeLabel;
+                    const statsParts = [];
+                    if (entry.description) statsParts.push(entry.description);
+                    if (entry.examples && entry.examples.length) statsParts.push(`Examples: ${entry.examples.join('; ')}`);
+                    if (entry.source) statsParts.push(`Source: ${entry.source}`);
+                    const partInfo = {
+                        id: String(partId),
+                        fullId: fullId,
+                        typeId: typeId,
+                        name: entry.name || fullId,
+                        displayName: entry.name || fullId,
+                        string: entry.name || fullId,
+                        spawnCode: fullId,
+                        stats: statsParts.join(' | '),
+                        partType: partType,
+                        originalPartType: partType,
+                        category: entry.category || 'Part',
+                        manufacturer: entry.manufacturer || null,
+                        itemType: entry.itemType || null,
+                        rarity: null,
+                        path: entry.source || 'GZO/custom modded catalog'
+                    };
+
+                    partsMap.set(fullId, partInfo);
+                    if (!partsMap.has(partInfo.id)) partsMap.set(partInfo.id, partInfo);
+                    if (!partsMap.has(partId)) partsMap.set(partId, partInfo);
+                    partsByTypeId.get(typeId).push(partInfo);
+                    added++;
+                    supplementAdded++;
+                }
+                if (supplementAdded > 0) {
+                    console.log(`MSBT: added ${supplementAdded} ${supplementInfo.label} parts to Matt editor browser`);
+                }
+            }
+            return added;
+        }
+
         function processGameData() {
             try {
                 typeIdMap.clear();
@@ -162,6 +255,10 @@
                 if (gameData.parts_by_id && (gameData.metadata && gameData.metadata.flattened || !gameData.weapons)) {
                     console.log('processGameData: Flattened format detected (parts_by_id' + (gameData.class_mod_skills ? ', class_mod_skills' : '') + ')');
                     buildFromPartsById(gameData);
+                    const msbtSupplementCount = mergeMsbtPartSupplements();
+                    if (msbtSupplementCount > 0) {
+                        console.log(`MSBT: MSBT part supplements loaded (${msbtSupplementCount} parts)`);
+                    }
                     if (typeof window !== 'undefined') window.classModSkills = gameData.class_mod_skills || null;
                     var el = document.getElementById('dataHelpText');
                     if (el) el.innerHTML = '<small style="color: #81c784;">✅ Data loaded successfully! You can now use the editor below.</small>';
@@ -5349,6 +5446,10 @@
 
             // Type IDs that have "NEW!" parts (derived from new serial IDs) - for manufacturer/type dropdown badges
             const typeIdsWithNewParts = new Set([1, 3, 4, 6, 7, 9, 11, 12, 13, 14, 17, 18, 21, 22, 23, 25, 287, 298]);
+                const msbtSupplementCount = mergeMsbtPartSupplements();
+                if (msbtSupplementCount > 0) {
+                    console.log(`MSBT: MSBT part supplements loaded (${msbtSupplementCount} parts)`);
+                }
             
             // Populate manufacturer dropdown (full Item Editor form only — save-editor / minimal layouts omit these nodes)
             const manufacturerSelect = document.getElementById('manufacturer');
